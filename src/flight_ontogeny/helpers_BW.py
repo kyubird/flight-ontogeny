@@ -10,7 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.signal as signal
-from src import helpers
+import flight_ontogeny.helpers as helpers
 #, helpers23
 from scipy.fft import fft, fftfreq
 from tqdm.notebook import  tqdm, tqdm_notebook
