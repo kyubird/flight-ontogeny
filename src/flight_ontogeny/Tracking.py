@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import calinski_harabasz_score
 from scipy.spatial.distance import cdist
+from scipy.integrate import cumulative_trapezoid as cumtrapz
+from scipy.signal import find_peaks
 
 from scipy import stats
 from scipy.stats import norm
@@ -16,6 +18,8 @@ from tqdm.notebook import tqdm, tqdm_notebook
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 from matplotlib import cm
+
+import math
 
 
 def label_stationary(marker_coordinates, frame_identifiers, threshold_proximity=0.001):
@@ -1196,6 +1200,171 @@ def get_flight_performance(flights):
     return flight_outcome
 
 
+def angle_between_vectors(p1, p2):
+    x1, y1, z1 = p1
+    x2, y2, z2 = p2
+    dot = x1*x2 + y1*y2 + z1*z2
+    mag1 = math.sqrt(x1**2 + y1**2 + z1**2)
+    mag2 = math.sqrt(x2**2 + y2**2 + z2**2)
+    if mag1 == 0 or mag2 == 0:
+        return 0
+    cos_theta = max(min(dot/ (mag1 * mag2), 1.0), - 1.0)
+    return math.degrees(math.acos(cos_theta))
+
+
+def calculate_differences(copy):
+    # Ensure the group is sorted by 'Time' or 'Frame' if necessary
+    copy = copy.sort_values(by='Time').copy()
+
+    #change mm -> m, Time is already in s
+    copy['X'] = copy['X']/1000
+    copy['Y'] = copy['Y']/1000
+    copy['Z'] = copy['Z']/1000
+
+
+    
+    # Calculate the differences in X, Y, Z row with the next row
+    copy['diff_X'] = copy['X'].diff()
+    copy['diff_Y'] = copy['Y'].diff()
+    copy['diff_Z'] = copy['Z'].diff()
+    copy['diff_Time'] = copy['Time'].diff()
+
+    # Instantaneous distance and velocity
+    copy['inst_res_dist'] = np.sqrt(copy['diff_X']**2 + copy['diff_Y']**2 + copy['diff_Z']**2)
+
+    copy['inst_V_res'] = copy['inst_res_dist'] / copy['diff_Time']  # diff_Time in s
+    copy['inst_V_X'] = copy['diff_X'] / copy['diff_Time']  # diff_Time in s
+    copy['inst_V_Y'] = copy['diff_Y'] / copy['diff_Time']  # diff_Time in s
+    copy['inst_V_Z'] = copy['diff_Z'] / copy['diff_Time']  # diff_Time in s
+
+    # Calculating Centripetal acceleration
+    # previous segment: P[i] - P[i-1]
+    turn_angles = [np.nan] * len(copy)
+
+    for i in range(1, len(copy)-1):
+       
+        p1 = (copy.iloc[i]['X'] - copy.iloc[i-1]['X'],
+              copy.iloc[i]['Y'] - copy.iloc[i-1]['Y'],
+              copy.iloc[i]['Z'] - copy.iloc[i-1]['Z'])
+        p2 = (copy.iloc[i+1]['X'] - copy.iloc[i]['X'],
+              copy.iloc[i+1]['Y'] - copy.iloc[i]['Y'],
+              copy.iloc[i+1]['Z'] - copy.iloc[i]['Z'])
+        
+        turn_angles[i] = angle_between_vectors(p1, p2) 
+
+    copy['Turn_Angle'] = turn_angles 
+    
+    # turn rate and centripetal acceleration
+    copy['Turn_Rate_degrees'] = copy['Turn_Angle'] / copy['diff_Time']
+    copy['Turn_Rate_radians'] = copy['Turn_Rate_degrees'] * (math.pi/180.0)
+    copy['Centripetal_acc'] = copy['Turn_Rate_radians'] * copy['inst_V_res']
+
+    
+    # Calculating instantaneous acceleration
+    copy['inst_acc_res'] = copy['inst_V_res'].diff() / copy['diff_Time']
+    copy['inst_acc_X'] = copy['inst_V_X'].diff() / copy['diff_Time']
+    copy['inst_acc_Y'] = copy['inst_V_Y'].diff() / copy['diff_Time']
+    copy['inst_acc_Z'] = copy['inst_V_Y'].diff() / copy['diff_Time']
+
+    # Cumulative metrics usually used for plots
+    copy['cumul_moving_distance'] = copy['inst_res_dist'].cumsum()
+    copy['cumul_time'] = copy['diff_Time'].cumsum()
+
+    return copy
+
+
+
+def compute_wingbeat_metrics(flights: pd.DataFrame, flight_outcome: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute wingbeat metrics for each FlightID and merge with flight outcome DataFrame.
+
+    Parameters:
+    flights (pd.DataFrame): DataFrame containing columns ['FlightID', 'cumul_time', 'inst_acc_Z']
+    flight_outcome (pd.DataFrame): DataFrame with FlightID as a column
+
+    Returns:
+    pd.DataFrame: Updated DataFrame with wingbeat metrics added
+    """
+
+    results = []
+
+    # Iterate through each FlightID
+    for flight_id in flights['FlightID'].drop_duplicates():
+        flight_data = flights[flights['FlightID'] == flight_id].sort_values('cumul_time')
+        x = flight_data['cumul_time'].values
+        y = flight_data['inst_acc_Z'].values
+
+        # Find maxima and minima
+        maxima, _ = find_peaks(y, prominence=1, distance=3)
+        minima, _ = find_peaks(-y, prominence=1, distance=3)
+
+        # Wingbeat frequency (Hz)
+        if len(maxima) > 1:
+            time_diffs = x[maxima][1:] - x[maxima][:-1]
+            wingbeat_freq = 1 / time_diffs.mean()
+        else:
+            wingbeat_freq = float('nan')
+
+        # upstroke, downstroke amplitudes
+        paired_count = min(len(maxima), len(minima))
+        if paired_count > 1:
+            upstroke_amplitudes_acc = []
+            downstroke_amplitudes_acc = []
+
+            for i in range(paired_count - 1):
+                upstroke_amplitudes_acc.append(abs(y[maxima[i+1]] - y[minima[i]]))
+                downstroke_amplitudes_acc.append(abs(y[maxima[i]] - y[minima[i+1]]))
+
+            upstroke_amp_mean_acc = np.mean(upstroke_amplitudes_acc)
+            downstroke_amp_mean_acc = np.mean(downstroke_amplitudes_acc)
+        else:
+            upstroke_amp_mean_acc = downstroke_amp_mean_acc = float('nan')
+
+        paired_count = min(len(maxima), len(minima))
+
+        if paired_count > 1:
+            upstroke_amplitudes_m = []
+            downstroke_amplitudes_m = []
+
+            for i in range(paired_count - 1):
+                # Downstroke: minima[i] to maxima[i+1]
+                if minima[i] < maxima[i+1]:
+                    t_up = x[minima[i]:maxima[i+1]+1]
+                    a_up = y[minima[i]:maxima[i+1]+1]
+                    if len(t_up) > 1:
+                        v_up = cumtrapz(a_up, t_up, initial=0)  # integrate acceleration -> velocity
+                        disp_up = cumtrapz(v_up, t_up)[-1]  # integrate velocity -> displacement
+                        downstroke_amplitudes_m.append(abs(disp_up))
+
+                # Upstroke: maxima[i] to minima[i+1]
+                if maxima[i] < minima[i+1]:
+                    t_down = x[maxima[i]:minima[i+1]+1]
+                    a_down = y[maxima[i]:minima[i+1]+1] 
+                    if len(t_down) > 1:
+                        v_down = cumtrapz(a_down, t_down, initial=0)
+                        disp_down = cumtrapz(v_down, t_down)[-1]
+                        upstroke_amplitudes_m.append(abs(disp_down))
+
+            upstroke_amp_mean_m = np.mean(upstroke_amplitudes_m)
+            downstroke_amp_mean_m = np.mean(downstroke_amplitudes_m)
+        else:
+            upstroke_amp_mean_m = downstroke_amp_mean_m = float('nan')
+
+
+        results.append({
+            'FlightID': flight_id,
+            'wingbeat_frequency': wingbeat_freq,
+            'upstroke_amplitude_acc': upstroke_amp_mean_acc,
+            'downstroke_amplitude_acc': downstroke_amp_mean_acc,
+            'upstroke_amplitude_m': upstroke_amp_mean_m,
+            'downstroke_amplitude_m': downstroke_amp_mean_m
+        })
+
+    # Merge with flight_outcome
+    metrics_df = pd.DataFrame(results).set_index('FlightID')
+    flight_outcome_updated = pd.concat([flight_outcome.set_index('FlightID'), metrics_df], axis=1)
+
+    return flight_outcome_updated
 
             
 

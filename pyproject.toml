@@ -33,7 +33,9 @@ dependencies = ["numpy",
                 "seaborn",
                 "tqdm",
                 "ipykernel",
-                "scikit-learn"]
+                "scikit-learn",
+                "jupyter",
+                "ipywidgets"]
 
 [project.optional-dependencies]
 dev = [
