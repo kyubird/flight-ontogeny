@@ -462,16 +462,15 @@ def get_force(df):
     # Ftotal already computed  
 
     # DataFrame to return
-    force_outcome = pd.DataFrame(columns=['trial_dataID','Bird', 'Age', 'Takeoff', 'max_Ftot', 'time_max_Ftot',  'Fx_maxFtot',
+    force_outcome = pd.DataFrame(columns=['FlightID','Bird', 'Age', 'Takeoff', 'max_Ftot', 'time_max_Ftot',  'Fx_maxFtot',
 'Fy_maxFtot', 'Fz_maxFtot', 'angle', 'bodyweight'])
 
     # Group the DataFrame by 'trial_dataID'
-    grouped = df.groupby(['trial_dataID'])
-
+    grouped = df.groupby(['FlightID'])
     # Iterate through each group with a progress bar
     for _, trial_data in tqdm(grouped, desc="Processing groups"):
         # Extract required values
-        trial_dataID = trial_data['trial_dataID'].iloc[0]
+        flightid = trial_data['FlightID'].iloc[0]
         bird = trial_data['Bird'].iloc[0]
         age = trial_data['Age'].iloc[0]
         takeoff = trial_data['Takeoff'].iloc[0]
@@ -502,7 +501,7 @@ def get_force(df):
         # Create a new row as a dictionary (faster than creating a DataFrame for each row)
         new_row = {
 
-            'trial_dataID': trial_dataID,
+            'FlightID': flightid,
             'Bird': bird,
             'Age': age,
             'Takeoff': takeoff,
