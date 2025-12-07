@@ -1158,6 +1158,9 @@ def get_flight_performance(flights):
         max_v_res = flight['inst_V_res'].max()
         max_acc_res = flight['inst_acc_res'].max()
 
+        max_acc_mag = flight['inst_acc_mag'].max()
+        mean_acc_mag = flight['inst_acc_mag'].mean()
+
         mean_turn_rate = flight['Turn_Rate_degrees'].mean()
         mean_centri_acc = flight['Centripetal_acc'].mean()
 
@@ -1174,19 +1177,27 @@ def get_flight_performance(flights):
             'mean_vx': mean_vx, 
             'mean_vy': mean_vy, 
             'mean_vz': mean_vz, 
+
             'max_vx': max_vx, 
             'max_vy': max_vy, 
             'max_vz': max_vz, 
+
             'mean_acc_x': mean_acc_x, 
             'mean_acc_y': mean_acc_y, 
             'mean_acc_z': mean_acc_z,
+
             'max_acc_x': max_acc_x, 
             'max_acc_y': max_acc_y, 
             'max_acc_z': max_acc_z,
+
             'mean_v_res': mean_v_res, 
             'mean_acc_res': mean_acc_res, 
+            'mean_acc_mag': mean_acc_mag,
+
             'max_v_res': max_v_res, 
             'max_acc_res': max_acc_res,
+            'max_acc_mag': max_acc_mag,
+
             'mean_turn_rate': mean_turn_rate, 
             'mean_centri_acc': mean_centri_acc, 
             'max_turn_rate': max_turn_rate, 
@@ -1265,6 +1276,7 @@ def calculate_differences(copy):
     copy['inst_acc_X'] = copy['inst_V_X'].diff() / copy['diff_Time']
     copy['inst_acc_Y'] = copy['inst_V_Y'].diff() / copy['diff_Time']
     copy['inst_acc_Z'] = copy['inst_V_Y'].diff() / copy['diff_Time']
+    copy['inst_acc_mag'] = np.sqrt(copy['inst_acc_X']**2 + copy['inst_acc_Y']**2 + copy['inst_acc_Z']**2)
 
     # Cumulative metrics usually used for plots
     copy['cumul_moving_distance'] = copy['inst_res_dist'].cumsum()
