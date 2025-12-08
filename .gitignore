@@ -8,7 +8,7 @@ __pycache__/
 
 # folder
 data/
-
+figures/
 # Distribution / packaging
 .Python
 build/
