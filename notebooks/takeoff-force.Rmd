@@ -1,0 +1,3288 @@
+---
+title: "zebra-force"
+author: "Kyu Min Huh"
+date: "2025-11-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Aims 
+
+In this markdown, I aim to see the age effect on the leg force at take-off. 
+Aims/Steps:
+
+1. show morphological trend with age
+- Graphs: a. body mass x age, b. wing area x age, c. wing chord length x age, d. tarsus length x age. 
+
+2. See if there's any visible trend in raw data with age
+- Graphs: a. max resultant force x age, with each individual marked by point and whiskers b. horizontal force at the time of max resultant force x age c. vertical force at the time of max resultant force x age d. impulse x age e. impulse ratio x age
+f. take-off angle x age 
+
+# Libraries
+```{r libraries}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+
+library(rptR)
+library(ggpubr)
+library(segmented)
+
+library(nlme)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(PerformanceAnalytics)
+library(MuMIn)
+library(lmtest)
+library(lmerTest)
+library(AICcmodavg)
+library(devtools)
+library(redres)
+library(robustlmm)
+library(car)
+library(ggeffects)
+
+```
+
+# I. Raw data plots (mean+-SD)
+## load the dataset 
+### force_data
+```{r load the datasets}
+
+# force data
+force_data <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\zebra-finches-fly\\data\\takeoff\\force_final.csv", sep = ",") %>% distinct()
+
+dim(force_data)
+
+
+# changing the unit to mN
+# more suitable for birds that weigh in grams not kilograms
+#force_data$max_Ftot = force_data$max_Ftot*1000
+
+# newton to gram conversion
+force_data$bodyweight_g = force_data$bodyweight * 101.9716
+
+# make relative max res force
+force_data$max_Ftot_bw = force_data$max_Ftot/force_data$bodyweight
+
+# other relative force as well 
+
+force_data <- force_data %>%
+  mutate(angle = as.numeric(angle)) %>%
+  mutate(Fx_maxFtot = as.numeric(Fx_maxFtot)) %>%
+  mutate(Fy_maxFtot = as.numeric(Fy_maxFtot)) %>%
+  mutate(Fz_maxFtot = as.numeric(Fz_maxFtot)) %>%
+  mutate(Fx_maxFtot_bw = abs(Fx_maxFtot)/bodyweight) %>%
+  mutate(Fy_maxFtot_bw = abs(Fy_maxFtot)/bodyweight) %>%
+  mutate(Fz_maxFtot_bw = abs(Fz_maxFtot)/bodyweight)
+
+
+
+# 'Age': change 81->80 and 61->60 
+
+force_data$Age[force_data$Age == 81] <- 80
+force_data$Age[force_data$Age == 61] <- 60
+```
+
+### wing area data
+```{r}
+wing_data <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\flight-ontogeny\\data\\morphology\\wingdata_names_edited.csv", sep = ",") %>% distinct()
+
+scale_weight <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\flight-ontogeny\\data\\morphology\\bodyweight_measured.csv", sep = ",")
+
+
+wing_data_sorted <- wing_data %>%
+  # sort by Bird (alphabetical) and Age (increasing)
+  arrange(Bird, Age) %>%
+  # keep only birds with at least 3 age records
+  group_by(Bird) %>%
+  filter(n_distinct(Age) >= 3) %>%
+  mutate(wingarea = wingarea/10000) %>% #converting mm^2 -> m^2
+  ungroup() %>%
+  left_join(scale_weight, by = c("Bird", "Age")) %>%
+  mutate(bodyweight_measured = as.numeric(bodyweight_measured)) %>%
+  mutate(bodyweight_measured = bodyweight_measured * 0.00980665) %>%
+  mutate(wing_loading = wingarea/bodyweight_measured) %>%
+  dplyr::select('Bird','Age','wingspan.calc','wingarea','bodyweight_measured','wing_loading')
+
+dim(wing_data_sorted)
+
+wing_data_final <- wing_data_sorted %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    wingspan = mean(wingspan.calc, na.rm = TRUE),
+    wingarea = mean(wingarea, na.rm = TRUE),
+    scale_weight = mean(bodyweight_measured, na.rm = TRUE),
+    wing_loading = mean(wing_loading, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% drop_na()
+
+dim(wing_data_final) #192
+
+```
+
+### sex and brood measured bodyweight data 
+```{r}
+sex_data <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\flight-ontogeny\\data\\morphology\\birds_sex_brood.csv", sep = ",") %>% distinct()
+
+force_data <- merge(force_data, sex_data, by = "Bird")
+wing_data_final <- merge(wing_data_final, sex_data, by = "Bird")
+
+
+```
+
+### flight trajectory data
+```{r}
+flights <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\flight-ontogeny\\data\\takeoff\\flight_outcome_full.csv", sep = ",") %>% left_join(sex_data, by = "Bird")
+
+raw_flight <- read.delim(file = "C:\\Users\\jesu4036\\Documents\\flight-ontogeny\\data\\takeoff\\clean_filtered_flights.csv", sep =",")
+colnames(flights)
+colnames(raw_flight)
+```
+## one flight
+```{r}
+#cyanR-blackL, Age 36, trial 1
+#test_flight1 <- raw_flight %>%
+ #filter(FlightID == 2303601.0)
+
+test_flight <- raw_flight %>%
+  filter(FlightID == 2303601.0)
+```
+## RAW PLOTS
+```{r}
+
+library(ggplot2)
+library(patchwork)
+
+df <- test_flight2
+
+# Position plots
+p1 <- ggplot(df, aes(cumul_time, X)) +
+  geom_line(color = "blue") +
+  geom_point(color = "darkblue") +
+  ggtitle("Position X")
+
+p2 <- ggplot(df, aes(cumul_time, Y)) +
+  geom_line(color = "green") +
+  geom_point(color = "darkgreen") +
+  ggtitle("Position Y")
+
+p3 <- ggplot(df, aes(cumul_time, Z)) +
+  geom_line(color = "red") +
+  geom_point(color = "darkred") +
+  ggtitle("Position Z")
+
+# Velocity plots
+p4 <- ggplot(df, aes(cumul_time, inst_V_X)) +
+  geom_line(color = "blue") +
+  geom_point(color = "darkblue") +
+  ggtitle("Velocity X")
+
+p5 <- ggplot(df, aes(cumul_time, inst_V_Y)) +
+  geom_line(color = "green") +
+  geom_point(color = "darkgreen") +
+  ggtitle("Velocity Y")
+
+p6 <- ggplot(df, aes(cumul_time, inst_V_Z)) +
+  geom_line(color = "red") +
+  geom_point(color = "darkred") +
+  ggtitle("Velocity Z")
+
+# Acceleration plots
+p7 <- ggplot(df, aes(cumul_time, inst_acc_X)) +
+  geom_line(color = "blue") +
+  geom_point(color = "darkblue") +
+  ggtitle("Acceleration X")
+
+p8 <- ggplot(df, aes(cumul_time, inst_acc_Y)) +
+  geom_line(color = "green") +
+  geom_point(color = "darkgreen") +
+  ggtitle("Acceleration Y")
+
+p9 <- ggplot(df, aes(cumul_time, inst_acc_Z)) +
+  geom_line(color = "red") +
+  geom_point(color = "darkred") +
+  ggtitle("Acceleration Z")
+
+
+# New 5 plots
+p10 <- ggplot(df, aes(cumul_time, inst_V_res)) +
+  geom_line(color="purple") + geom_point(color="purple") + ggtitle("Velocity Resultant")
+
+p11 <- ggplot(df, aes(cumul_time, inst_acc_res)) +
+  geom_line(color="orange") + geom_point(color="darkorange") + ggtitle("Tangential acceleration")
+
+p12 <- ggplot(df, aes(cumul_time, inst_acc_mag)) +
+  geom_line(color="orange") + geom_point(color="darkorange") + ggtitle("Acceleration magnitude")
+
+
+p13 <- ggplot(df, aes(cumul_time, Turn_Rate_degrees)) +
+  geom_line(color="brown") + geom_point(color="brown") + ggtitle("Turn Rate (degrees)")
+
+p14 <- ggplot(df, aes(cumul_time, Centripetal_acc)) +
+  geom_line(color="pink") + geom_point(color="deeppink") + ggtitle("Centripetal Acceleration")
+
+# Combine all plots
+final_plot2 <- (p1 | p2 | p3) /
+              (p4 | p5 | p6) /
+              (p7 | p8 | p9) /
+              (p10 | p11 | p12)/
+              (p13| p14)
+
+final_plot2
+
+
+
+
+```
+#### function plot_age_var 
+```{r}
+plot_age_var <- function(variable, df, title) {
+  
+  # Summary by individual
+  summary_df <- df %>%
+    group_by(Bird, Age) %>%
+    summarise(
+      mean = mean({{variable}}, na.rm = TRUE),
+      sd = sd({{variable}}, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    )
+  
+  # Summary by age
+  trend_df <- df %>%
+    group_by(Age) %>%
+    summarise(
+      mean = mean({{variable}}, na.rm = TRUE),
+      sd = sd({{variable}}, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    )
+  
+  # Plot
+  plot_age_performance<- ggplot(df, aes(x = Age, y = {{variable}}, color = Bird)) +
+    geom_point(position = position_jitter(width = 1), alpha = 0.3) +
+    geom_errorbar(
+      data = summary_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd, color = Bird, alpha = 0.6),
+      width = 2, size = 0.8,
+      inherit.aes = FALSE
+    ) +
+    geom_point(
+      data = summary_df,
+      aes(y = mean, x = Age, color = Bird, alpha = 0.9),
+      size = 2, shape = 18,
+      inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = summary_df,
+      aes(x = Age, y = mean, color = Bird, group = Bird, alpha = 0.8),
+      size = 0.7,
+      inherit.aes = FALSE
+    ) +
+    geom_ribbon(
+      data = trend_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd),
+      fill = "grey70", alpha = 0.5,
+      inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = trend_df,
+      aes(x = Age, y = mean),
+      ,color = "grey50", alpha = 0.8, size = 1.2,
+      inherit.aes = FALSE
+    ) +
+    scale_x_continuous(breaks = unique(df$Age)) +
+    labs(x = "Age", y = title, title = "") +
+    guides(alpha = "none", color = "none") +
+    theme(legend.position = "none")+
+    theme_minimal()
+  
+  return(plot_age_performance)
+}
+```
+## A. Morphology
+### a. wing area
+
+```{r wing area per bird}
+
+# Summarize mean and standard deviation per Bird & Age
+summary_df <- wing_data_final %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_wa = mean(wingarea),
+    sd_wa = sd(wingarea),
+    .groups = "drop"
+  )
+
+trend_df <- wing_data_final %>%
+  group_by(Age) %>%
+  summarise(
+    mean_wa = mean(wingarea, na.rm = TRUE),
+    sd_wa   = sd(wingarea, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot: trials + mean + SD
+plot_wingarea <- ggplot(wing_data_final, aes(x = Age, y = wingarea, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_wa - sd_wa, ymax = mean_wa + sd_wa, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(x = Age, y = mean_wa,  color = Bird, alpha = 0.9),
+    size = 3, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_wa, color = Bird, group = Bird, alpha = 0.8),
+    linewidth = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_wa - sd_wa, ymax = mean_wa + sd_wa),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_wa),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(wing_data_sorted$Age)) +
+  labs(x = "Age", y = "Wing Area (m^2)", title = "") +
+  ylim(0.5, 1.0)+
+  guides(alpha = "none") +
+  theme_minimal() #+
+  #theme(legend.position = "none")
+
+plot_wa_age
+
+
+
+```
+```{r}
+plot_wingarea <- plot_age_var(wingarea, wing_data_final, "wing area (N/m^2)")
+
+```
+
+
+### b. calculated wingspan
+```{r}
+plot_wingspan <- plot_age_var(wingspan, wing_data_final, "wingspan (mm)")
+```
+
+### c. perching weight
+```{r}
+plot_perch_g <- plot_age_var(bodyweight_g, force_data, "perching weight(g)")
+```
+
+### d. scale weight
+```{r}
+plot_scale_g <- plot_age_performance(scale_weight*101.97, wing_data_final, "scale weight (g)")
+ggarrange(plot_perch_g, plot_scale_g, nrow = 1, ncol = 2)
+```
+
+### e. wing loading 
+```{r}
+plot_wingloading <- plot_age_var(wing_loading, wing_data_final, "wing loading (N/m^2)")
+```
+
+### PLOTS - wingspan, wing area, scale weight, wing loading 
+```{r}
+
+plots_morphology <- ggarrange(plot_wingspan, plot_wingarea, plot_scale_g, plot_wingloading, nrow = 2, ncol =2)
+
+plots_morphology
+
+```
+## B. Performance
+
+### LEGS
+#### a. max resultant force
+```{r}
+
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_maxF = mean(max_Ftot),
+    sd_maxF   = sd(max_Ftot),
+    .groups = "drop"
+  ) %>% as.data.frame()
+
+# Reference means at Age 20 for each Bird
+ref_summary <- summary_df %>%
+  filter(Age == 20) %>%
+  dplyr::select(Bird, mean_maxF, sd_maxF) %>%
+  dplyr::rename(ref_mean_maxF = mean_maxF, 
+         ref_sd_maxF = sd_maxF)
+
+# Centered summary: subtract the bird-specific mean at Age 20
+summary_df_init <- summary_df %>%
+  left_join(ref_summary, by = "Bird") %>%
+  mutate(
+    mean_maxF_centered = mean_maxF - ref_mean_maxF,
+    # Optionally keep sd as-is; centering doesn't change variability
+    sd_maxF_centered   = sd_maxF #SD unchanged
+  ) %>%
+  arrange(Bird, Age)
+
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_maxF = mean(max_Ftot, na.rm = TRUE),
+    sd_maxF   = sd(max_Ftot, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# Extract reference mean at Age 20
+ref_mean <- trend_df %>%
+  filter(Age == 20) %>%
+  pull(mean_maxF)
+
+# Center all means by subtracting the mean at Age 20
+trend_df_init <- trend_df %>%
+  mutate(
+    mean_maxF_centered = mean_maxF - ref_mean,
+    sd_maxF_centered   = sd_maxF  # SD stays the same
+  )
+```
+##### raw
+```{r}
+plot_age_maxFtot <- ggplot(force_data, aes(x = Age, y = max_Ftot, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_maxF - sd_maxF, ymax = mean_maxF + sd_maxF, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_maxF, x = Age, color = Bird, alpha = 0.9),
+    size = 3, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_maxF, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_maxF - sd_maxF, ymax = mean_maxF + sd_maxF),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_maxF),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "max F (N)", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+plot_age_maxFtot
+```
+##### centrerd
+```{r}
+plot_age_maxFtot_centred <- ggplot() +
+  
+  # error bard for per-bird summary
+  geom_errorbar(
+    data = summary_df_init,
+    aes(x = Age, 
+        ymin = mean_maxF_centered - sd_maxF_centered, 
+        ymax = mean_maxF_centered + sd_maxF_centered, 
+        color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  # Points for per-bird means
+  geom_point(
+    data = summary_df_init,
+    aes(y = mean_maxF_centered, x = Age, color = Bird, alpha = 0.9),
+    size = 3, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  # Lines for per-bird trends
+   geom_line(
+    data = summary_df_init,
+    aes(x = Age, y = mean_maxF_centered, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  # Ribbon for overall trend SD
+  geom_ribbon(
+    data = trend_df_init,
+    aes(x = Age, ymin = mean_maxF_centered - sd_maxF_centered, ymax = mean_maxF_centered + sd_maxF_centered),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  # Line for overall trend mean
+  geom_line(
+    data = trend_df_init,
+    aes(x = Age, y = mean_maxF_centered),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "max F centred (N)", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+plot_age_maxFtot_centred
+
+
+
+
+```
+
+#### b. bodyweight relative max Ftot
+```{r}
+
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_maxF_bw = mean(max_Ftot_bw),
+    sd_maxF_bw   = sd(max_Ftot_bw),
+    .groups = "drop"
+  )
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_maxF_bw = mean(max_Ftot_bw, na.rm = TRUE),
+    sd_maxF_bw   = sd(max_Ftot_bw, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+plot_age_maxF_bw <- ggplot(force_data, aes(x = Age, y = max_Ftot_bw, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_maxF_bw - sd_maxF_bw, ymax = mean_maxF_bw + sd_maxF_bw, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_maxF_bw, x = Age, color = Bird, alpha = 0.9),
+    size = 3, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_maxF_bw, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_maxF_bw - sd_maxF_bw, ymax = mean_maxF_bw + sd_maxF_bw),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_maxF_bw),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "max F / bw", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal()+
+  theme(legend.position = "none")
+
+plot_age_maxF_bw
+```
+#### c. vertical force
+##### absolute
+```{r}
+
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_Fx = mean(-Fx_maxFtot),
+    sd_Fx = sd(-Fx_maxFtot),
+    .groups = "drop"
+  )
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_Fx = mean(-Fx_maxFtot, na.rm = TRUE),
+    sd_Fx   = sd(-Fx_maxFtot, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+plot_age_Fx <- ggplot(force_data, aes(x = Age, y = -Fx_maxFtot, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_Fx - sd_Fx, ymax = mean_Fx + sd_Fx, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_Fx, x = Age, color = Bird, alpha = 0.9),
+    size = 2, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_Fx, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_Fx - sd_Fx, ymax = mean_Fx + sd_Fx),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_Fx),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "Fx", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal() +
+  theme(legend.position = "none")
+
+plot_age_Fx
+
+
+```
+##### relative
+```{r}
+
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_Fx_bw = mean(Fx_maxFtot_bw),
+    sd_Fx_bw = sd(Fx_maxFtot_bw),
+    .groups = "drop"
+  )
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_Fx_bw = mean(Fx_maxFtot_bw, na.rm = TRUE),
+    sd_Fx_bw   = sd(Fx_maxFtot_bw, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+plot_age_Fx_bw <- ggplot(force_data, aes(x = Age, y = Fx_maxFtot_bw, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_Fx_bw - sd_Fx_bw, ymax = mean_Fx_bw + sd_Fx_bw, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_Fx_bw, x = Age, color = Bird, alpha = 0.9),
+    size = 2, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_Fx_bw, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_Fx_bw - sd_Fx_bw, ymax = mean_Fx_bw + sd_Fx_bw),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_Fx_bw),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "Fx / bw (N)", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal() +
+  theme(legend.position = "none")
+
+plot_age_Fx_bw
+
+```
+#### d. horizontal force
+##### absolute
+```{r}
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_Fy = mean(Fy_maxFtot),
+    sd_Fy = sd(Fy_maxFtot),
+    .groups = "drop"
+  )
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_Fy = mean(Fy_maxFtot, na.rm = TRUE),
+    sd_Fy   = sd(Fy_maxFtot, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+plot_age_Fy <- ggplot(force_data, aes(x = Age, y = Fy_maxFtot, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_Fy - sd_Fy, ymax = mean_Fy + sd_Fy, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_Fy, x = Age, color = Bird, alpha = 0.9),
+    size = 2, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_Fy, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_Fy - sd_Fy, ymax = mean_Fy + sd_Fy),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_Fy),
+    color = "grey50", alpha = 0.8,size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "Fy", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  theme_minimal() +
+  theme(legend.position = "none")
+
+plot_age_Fy
+
+```
+
+##### relative
+```{r}
+summary_df <- force_data %>%
+  group_by(Bird, Age) %>%
+  summarise(
+    mean_Fy_bw = mean(Fy_maxFtot_bw),
+    sd_Fy_bw = sd(Fy_maxFtot_bw),
+    .groups = "drop"
+  )
+
+trend_df <- force_data %>%
+  group_by(Age) %>%
+  summarise(
+    mean_Fy_bw = mean(Fy_maxFtot_bw, na.rm = TRUE),
+    sd_Fy_bw   = sd(Fy_maxFtot_bw, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+plot_age_Fy_bw <- ggplot(force_data, aes(x = Age, y = Fy_maxFtot_bw, color = Bird)) +
+  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
+  geom_errorbar(
+    data = summary_df,
+    aes(x=Age, ymin = mean_Fy_bw - sd_Fy_bw, ymax = mean_Fy_bw + sd_Fy_bw, color = Bird, alpha = 0.6),
+    width = 2, size = 0.8,
+    inherit.aes = FALSE) +
+  
+  geom_point(
+    data = summary_df,
+    aes(y = mean_Fy_bw, x = Age, color = Bird, alpha = 0.9),
+    size = 2, shape = 18,
+    inherit.aes = FALSE
+  ) +
+  
+   geom_line(
+    data = summary_df,
+    aes(x = Age, y = mean_Fy_bw, color = Bird, group = Bird, alpha = 0.8),
+    size = 0.7,
+    inherit.aes = FALSE) +
+  
+  geom_ribbon(
+    data = trend_df,
+    aes(x = Age, ymin = mean_Fy_bw - sd_Fy_bw, ymax = mean_Fy_bw + sd_Fy_bw),
+    fill = "grey70", alpha = 0.5,
+    inherit.aes = FALSE
+  ) +
+  
+  geom_line(
+    data = trend_df,
+    aes(x = Age, y = mean_Fy_bw),
+    color = "grey50", alpha = 0.8, size = 1.2,
+    inherit.aes = FALSE) +
+  
+   scale_x_continuous(breaks = unique(force_data$Age)) +
+  labs(x = "Age", y = "Fy / bw (N)", title = "") +
+  #ylim(10, 25)+
+  guides(alpha = "none")+
+  ylim(0,6) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+plot_age_Fy_bw
+
+
+```
+#### e. longitudinal force
+##### absolute
+```{r}
+
+plot_age_performance(Fz_maxFtot, force_data, "max longitudinal force (N)")
+```
+##### relative
+```{r}
+plot_age_performance(Fz_maxFtot_bw, force_data, "max longitudinal force (N)")
+
+```
+
+
+#### f. impulse
+##### impulse 
+```{r}
+
+plot_age_impulse <- plot_age_performance(impulse*1000, force_data, "impulse (mN*s)") +ylim(-10, 60) #1 row removed
+
+plot_age_impulse
+```
+
+##### duration
+```{r}
+plot_age_duration <- plot_age_performance(duration, force_data, "impulse duration (s)") + ylim(0, 0.20)
+
+plot_age_duration
+```
+
+##### impulse ratio
+```{r}
+plot_age_impulse_ratio <- plot_age_performance(impulse_ratio, force_data, "impulse ratio ( left impulse / right impulse )")
+
+plot_age_impulse_ratio
+```
+
+
+##### left impulse
+```{r}
+plot_left_impulse <- plot_age_performance(left_impulse*1000, force_data, "left impulse (mN*s)") #1 outlier removed
+plot_left_impulse
+```
+
+##### right impulse
+```{r}
+plot_right_impulse <- plot_age_performance(right_impulse*1000, force_data, "right impulse (mN*s)") 
+plot_right_impulse
+```
+
+##### left duration
+```{r}
+plot_left_duration <- plot_age_performance(left_duration, force_data, "left duration (s)")
+plot_left_duration
+```
+
+##### right duration
+```{r}
+
+plot_right_duration <- plot_age_performance(right_duration, force_data, "right duration (s)") + ylim(0, 0.075)
+
+plot_right_duration
+
+```
+
+
+#### f. takeoff angle 
+```{r}
+
+plot_age_angle <- plot_age_performance(angle, force_data, "takeoff angle (degrees)") 
+plot_age_angle
+```
+
+
+### PLOTS. altogether
+```{r}
+ggarrange(plot_age_maxFtot, plot_age_Fx, plot_age_Fy, plot_age_maxF_bw, plot_age_Fx_bw, plot_age_Fy_bw, nrow = 2, ncol=3)
+```
+
+### FLIGHT SPEED
+
+#### a. turn rate
+##### mean
+```{r}
+plot_tr_mean <- plot_age_performance(mean_turn_rate, flights, "mean turn rate (degrees/s)") +ylim(0,750)
+plot_tr_mean
+
+```
+
+##### max
+```{r}
+
+plot_tr_max <- plot_age_performance(max_turn_rate, flights, "max turn rate (degrees/s)") +ylim(-1250, 5000)
+plot_tr_max
+```
+
+
+#### b. centripetal acceleration
+##### mean
+```{r}
+
+plot_ctracc_mean <- plot_age_performance(mean_centri_acc, flights, "mean centripetal acceleration (m/s^2)") +ylim(0, 30)
+plot_ctracc_mean
+```
+
+##### max
+```{r}
+
+plot_ctracc_max <- plot_age_performance(max_centri_acc, flights, "max centripetal acceleration (m/s^2)") +ylim(-50, 150)
+plot_ctracc_max
+
+```
+#### c. resultant velocity
+##### mean
+```{r}
+plot_vres_mean <- plot_age_performance(mean_v_res, flights, "mean resultant velocity (m/s)")
+plot_vres_mean
+```
+##### max
+```{r}
+plot_vres_max <- plot_age_performance(variable = max_v_res, df = flights, title = "max resultant velocity (m/s)")
+plot_vres_max
+
+```
+
+#### d. resultant acceleration
+##### mean
+```{r}
+
+plot_accres_mean <- plot_age_performance(mean_acc_res, flights, "mean resultant acceleration (m/s^2)")
+plot_accres_mean
+```
+##### max
+```{r}
+plot_accres_max <- plot_age_performance(max_acc_res, flights, "max resultant acceleration (m/s^2)") +ylim(-100, 150)
+plot_accres_max
+
+```
+#### e. X vel & acc
+##### mean v
+```{r}
+plot_vx_mean <- plot_age_performance(mean_vx, flights, "mean X velocity (m/s)")
+plot_vx_mean
+```
+##### max v
+```{r}
+plot_vx_max <- plot_age_performance(max_vx, flights, "max X velocity (m/s)")
+plot_vx_max
+```
+##### mean acc
+```{r}
+plot_accx_mean <- plot_age_performance(mean_acc_x, flights, "mean X acceleration (m/s^2)") 
+plot_accx_mean
+
+```
+##### max acc
+```{r}
+plot_accx_max <- plot_age_performance(max_acc_x, flights, "max X acceleration (m/s^2)") 
+plot_accx_max
+
+```
+#### f. Y vel & acc
+##### mean v
+```{r}
+plot_vy_mean <- plot_age_performance(mean_vy, flights, "mean Y velocity (m/s)") 
+plot_vy_mean
+```
+##### max v
+```{r}
+plot_vy_max <- plot_age_performance(max_vy, flights, "max Y velocity (m/s)")
+plot_vy_max +ylim(0, 6)
+```
+##### mean acc
+```{r}
+plot_accy_mean <- plot_age_performance(mean_acc_y, flights, "mean Y acceleration (m/s^2)") 
+plot_accy_mean
+```
+##### max acc
+```{r}
+plot_accy_max <- plot_age_performance(mean_acc_y, flights, "max Y acceleration (m/s^2)") 
+plot_accy_max
+```
+#### g. Z vel & acc
+##### mean v
+```{r}
+plot_vz_mean <- plot_age_performance(mean_vz, flights, "mean Z velocity (m/s)")
+plot_vz_mean
+```
+##### max v
+```{r}
+plot_vz_max <- plot_age_performance(max_vz, flights, "max Z velocity (m/s)")
+plot_vz_max
+
+```
+##### mean acc
+```{r}
+plot_accz_mean <- plot_age_performance(mean_acc_z, flights, "mean Z acceleration (m/s^2)")
+plot_accz_mean
+
+```
+##### max acc
+```{r}
+plot_accz_max <- plot_age_performance(max_acc_z, flights, "max Z acceleration (m/s^2)") 
+plot_accz_max
+```
+### WINGBEATS
+#### frequency
+```{r}
+plot_wb_mean <- plot_age_performance(wingbeat_frequency, flights, "wingbeat frequency (Hz)")
+plot_wb_mean
+```
+#### upstroke
+```{r}
+plot_upstroke_acc <- plot_age_performance(upstroke_amplitude_acc, flights, "upstroke_head_acc (m/s^2)")
+plot_upstroke_acc
+
+plot_upstroke_m <- plot_age_performance(upstroke_amplitude_m, flights, "upstroke head displacement (m)")
+plot_upstroke_m
+```
+#### downstroke
+```{r}
+plot_downstroke_acc <- plot_age_performance(downstroke_amplitude_acc, flights, "downstroke_head_acc (m/s^2)")
+plot_downstroke_acc
+
+plot_downstroke_m <- plot_age_performance(downstroke_amplitude_m, flights, "downstroke head displacement (m)")
+plot_downstroke_m
+```
+
+### ggarrange Plots
+```{r}
+ggarrange(plot_vx_mean, plot_vy_mean, plot_vz_mean, 
+          plot_accx_mean, plot_accy_mean, plot_accz_mean, nrow = 2, ncol = 3)
+
+ggarrange(plot_vx_max, plot_vy_max, plot_vz_max,
+          plot_accx_max, plot_accy_max, plot_accz_max, nrow = 2, ncol = 3)
+
+ggarrange(plot_vres_mean, plot_accres_mean, plot_tr_mean, plot_ctracc_mean, nrow = 2, ncol =2)
+
+ggarrange(plot_vres_max, plot_accres_max, plot_tr_max, plot_ctracc_max, nrow = 2, ncol =2 )
+
+ggarrange(plot_wb_mean, plot_downstroke_m, plot_upstroke_m, nrow = 1, ncol = 3)
+```
+
+# II. Finding the knot - Broken Stick Model
+## A. Significant
+### MORPHOLOGY
+#### bodyweight - 28.1
+```{r}
+m_lin <- lm(scale_weight ~ Age * Sex +Brood, data = wing_data_final)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg) # Male 0.8g lower and Brood 0.7g higher. 
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #breakpoint: 28.46. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+print(breakpoint)
+print(slope_early)
+print(slope_late)
+
+```
+#### wingspan - 28
+```{r}
+m_lin <- lm(wingspan ~ Age * Sex +Brood, data = wing_data_final)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 28))  # initial guess at 36
+summary(m_seg) # Male 0.8g lower and Brood 0.7g higher. 
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #breakpoint: 28.46. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+print(breakpoint)
+print(slope_early)
+print(slope_late)
+
+```
+#### wing area - 28.5
+```{r}
+m_lin <- lm(wingarea ~ Age*Sex + Brood, data = wing_data_final)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 28))  # initial guess at 36
+summary(m_seg) # Age not significant. Larger brood, larger wing area
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #27.8
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+print(breakpoint)
+print(slope_early)
+print(slope_late)
+```
+
+
+### LEG
+#### max Fz-> x(paper)/bw -40
+```{r}
+
+m_lin <- lm(Fz_maxFtot_bw ~ Age*Sex +Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 40))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.46. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+print(breakpoint)
+print(slope_early)
+print(slope_late)
+
+```
+#### max Fy / bw - 34.5
+```{r}
+
+
+m_lin <- lm(Fy_maxFtot_bw ~ Age*Sex, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.46. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$age[1, "Est."]
+slope_late  <- slope(m_seg)$age[2, "Est."]
+
+
+
+
+```
+#### max Ftot /bw - 36.5
+```{r}
+m_lin <- lm(max_Ftot_bw ~ Age*Sex, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$age[1, "Est."]
+slope_late  <- slope(m_seg)$age[2, "Est."]
+
+```
+
+#### take-off angle - 34.01
+```{r}
+m_lin <- lm(angle ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+
+```
+#### impulse -30.2
+```{r}
+m_lin <- lm(impulse*1000 ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+#### left impulse -32
+```{r}
+m_lin <- lm(left_impulse*1000 ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+#### right impulse - 24.9
+```{r}
+m_lin <- lm(right_impulse*1000 ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+#### duration - 38.4
+```{r}
+m_lin <- lm(duration ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+
+#### left duration - 40
+```{r}
+m_lin <- lm(left_duration ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+
+#### right duration -33.1
+```{r}
+m_lin <- lm(right_duration ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+
+### TRAJECTORY
+#### Z velocity - 32.9
+```{r}
+
+m_lin <- lm(mean_vz ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #32.9
+slope_early #-0.04
+slope_late #0.0013 
+
+```
+#### Y velocity - 33.0
+```{r}
+
+m_lin <- lm(mean_vy ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+
+```
+
+#### Y acceleration -33.7
+```{r}
+m_lin <- lm(mean_acc_y ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint # 33.7
+slope_early # 0.09 m/s^2 per day
+slope_late # 0.0088 m/s^2 per day 
+
+```
+#### Z acceleration -33.7
+```{r}
+m_lin <- lm(mean_acc_z ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint # 48.3
+slope_early # 0.09 m/s^2 per day until 48.3 
+slope_late # 0.009 m/s^2 per day 
+```
+#### tangential acceleration - 33.8
+```{r}
+
+m_lin <- lm(mean_acc_res ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint # 33.8 
+slope_early # +0.09 m/s^2 per day
+slope_late # +0.0076 m/s^2 per day 
+
+
+```
+
+#### tangential velocity - 34.3
+```{r}
+
+m_lin <- lm(mean_v_res ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+
+
+```
+
+#### turn rate - 41.7
+```{r}
+m_lin <- lm(mean_turn_rate ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #41.7
+slope_early #-2.57 (birds turn less/day until 40 days)
+slope_late  #1.29 (birds turn more/day after 40 days)
+
+```
+
+#### X velocity - 60
+```{r}
+
+m_lin <- lm(mean_vx ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 60))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #60
+slope_early # -0.015
+slope_late # 0.001
+
+```
+#### X acceleration -74.6
+```{r}
+m_lin <- lm(mean_acc_x ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 80))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint # 74.6 
+slope_early # -0.033 m/s^2 per day
+slope_late # +0.029 m/s^2 per day 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## B. Not significant
+
+### wing loading
+```{r}
+
+m_lin <- lm(wing_loading ~ Age*Sex + Brood, data = wing_data_final)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 28))  # initial guess at 36
+summary(m_seg) # Age not significant. Larger brood, larger wing area
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #27.8
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+print(breakpoint)
+print(slope_early)
+print(slope_late)
+
+
+
+```
+
+### max Fx / bw
+- not significant
+```{r}
+m_lin <- lm(Fx_maxFtot_bw ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # no breakpoint but higher Fx force in males
+slope_early <- slope(m_seg)$age[1, "Est."]
+slope_late  <- slope(m_seg)$age[2, "Est."]
+```
+
+### impulse ratio - not significant!!
+```{r}
+m_lin <- lm(impulse_ratio ~ Age*Sex + Brood, data = force_data)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] #36.5. # male max resultant force generally stronger than females.
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint
+slope_early
+slope_late
+```
+
+### mean centripetal acceleration
+```{r}
+
+m_lin <- lm(mean_centri_acc ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint 
+slope_early 
+slope_late 
+
+```
+### max centripetal acceleration
+```{r}
+
+m_lin <- lm(max_centri_acc ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint 
+slope_early 
+slope_late 
+
+```
+### upstroke 
+```{r}
+
+m_lin <- lm(upstroke_amplitude_m*1000 ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 32))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #31
+slope_early #0.18 mm (more head displacement/day until 80 days)
+slope_late  #0.01 mm(less "" /day after 80 days)
+
+```
+### downstroke
+```{r}
+
+m_lin <- lm(downstroke_amplitude_m*1000 ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 32))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #31
+slope_early #0.18 mm (more head displacement/day until 80 days)
+slope_late  #0.01 mm(less "" /day after 80 days)
+
+```
+### wingbeat frequency - 60 
+```{r}
+m_lin <- lm(wingbeat_frequency ~ Age*Sex + Brood, data = flights)
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 60))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+slope_early <- slope(m_seg)$Age[1, "Est."]
+slope_late  <- slope(m_seg)$Age[2, "Est."]
+
+breakpoint #60
+slope_early #0.0031966 (less wingbeat Hz/day until 42.9 days)
+slope_late  #0.020644 (more wingbeat Hz/day after 42.9 days)
+
+```
+
+# III. Model Analysis
+## example
+```{r}
+plot_age_performance <- function(variable, df, title) {
+  
+  # Summary by individual
+  summary_df <- df %>%
+    group_by(Bird, Age) %>%
+    summarise(
+      mean = mean({{variable}}, na.rm = TRUE),
+      sd = sd({{variable}}, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    )
+  
+  # Summary by age
+  trend_df <- df %>%
+    group_by(Age) %>%
+    summarise(
+      mean = mean({{variable}}, na.rm = TRUE),
+      sd = sd({{variable}}, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    )
+  
+  # Plot
+  plot_age_performance<- ggplot(df, aes(x = Age, y = {{variable}}, color = Bird)) +
+    geom_point(position = position_jitter(width = 1), alpha = 0.3) +
+    geom_errorbar(
+      data = summary_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd, color = Bird, alpha = 0.6),
+      width = 2, size = 0.8,
+      inherit.aes = FALSE
+    ) +
+    geom_point(
+      data = summary_df,
+      aes(y = mean, x = Age, color = Bird, alpha = 0.9),
+      size = 2, shape = 18,
+      inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = summary_df,
+      aes(x = Age, y = mean, color = Bird, group = Bird, alpha = 0.8),
+      size = 0.7,
+      inherit.aes = FALSE
+    ) +
+    geom_ribbon(
+      data = trend_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd),
+      fill = "grey70", alpha = 0.5,
+      inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = trend_df,
+      aes(x = Age, y = mean),
+      ,color = "grey50", alpha = 0.8, size = 1.2,
+      inherit.aes = FALSE
+    ) +
+    scale_x_continuous(breaks = unique(df$Age)) +
+    labs(x = "Age", y = title, title = "") +
+    guides(alpha = "none", color = "none") +
+    theme(legend.position = "none")+
+    theme_minimal()
+  
+  return(plot_age_performance)
+}
+
+```
+## function plot_lmer_stats
+```{r}
+
+plot_lmer_stats <- function(var, df, breakpoint) {
+# Use precise breakpoint in hinge term
+  
+  options(contrasts = c("contr.sum", "contr.poly"))
+  
+  df$hinge <- pmax(df$Age - breakpoint, 0)
+  
+  lmer_{var} <- lmer(var ~ Age*Sex + hinge + (1|Brood/Bird), data = force_data)
+  
+  # computing residuals
+  raw_cond_{var} <- compute_redres(lmer_{var})
+  
+  hist(raw_cond_{var}) #normality in histogram
+  plot_redres(lmer_{var}) #heteroskedasticity
+  plot_resqq(lmer_{var}) #normality of residuals
+  plot_ranef(lmer_{var}) 
+  ## Oops not so well behaving
+  summary(lmer_{var})
+  Anova(lmer_{var}, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+  
+  
+  linearHypothesis(lmer_{var}, "Age = 0") # Is the slope before the breakpoint flat? -> no
+  linearHypothesis(lmer_{var}, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+  
+  pred_{var} <- ggpredict(lmer_{var}, terms = c("Age [all]", "hinge"))
+  
+  # Create hinge variable
+  
+  df$hinge <- pmax(df$Age - breakpoint, 0)
+  
+  # Get fitted values across Age
+  newdat <- data.frame(
+    Age = seq(min(df$Age), max(df$Age), by = 1),
+    Sex = "F",        # or average over Sex
+    Brood = mean(df$Brood),
+    hinge = pmax(seq(min(df$Age), max(df$Age), by = 1) - breakpoint, 0)
+  )
+  
+  newdat$pred <- predict(lmer_{var}, newdat, re.form = NA)
+  
+  
+  plot_{{var}}_final <-
+    plot_{{var}}_age +
+    # thick black line underneath
+    geom_line(
+      data = newdat,
+      aes(x = Age, y = pred),
+      color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+    ) +
+    #geom_line(
+    #  data = newdat,
+    #  aes(x = Age, y = pred),color = "red",
+    #  size = 1.2, inherit.aes = FALSE
+    #) +
+    geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red")
+  
+  return(plot_{{var}}_final)
+  
+}
+
+
+
+```
+## MORPHOLOGY
+### bodyweight
+#### lmer
+-Age and Hinge significant
+- Slope before and after breakpoint both significant
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 28.5, 0)
+
+lmer_bw <- lmer(bodyweight_g ~ Age*Sex + Brood + hinge + (1|Bird), data = force_data)
+
+# computing residuals
+raw_cond_bw <- compute_redres(lmer_bw)
+
+hist(raw_cond_bw) #normality in histogram
+plot_redres(lmer_bw) #heteroskedasticity
+plot_resqq(lmer_bw) #normality of residuals
+plot_ranef(lmer_bw) 
+## Oops not so well behaving
+summary(lmer_bw)
+Anova(lmer_bw, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_bw, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_bw, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### function compare_models_aic()
+```{r}
+# Function to compare models using AIC, ΔAIC, and Akaike weights
+compare_models_aic <- function(models) {
+  # Validate input
+  if (!is.list(models) || length(models) < 2) {
+    stop("Please provide a list of at least two fitted model objects.")
+  }
+  
+  # Extract model names
+  model_names <- names(models)
+  if (is.null(model_names) || any(model_names == "")) {
+    model_names <- paste0("Model_", seq_along(models))
+  }
+  
+  # Compute AIC for each model
+  aic_values <- sapply(models, function(m) {
+    tryCatch(AIC(m), error = function(e) NA)
+  })
+  
+  # Check for NA values
+  if (any(is.na(aic_values))) {
+    stop("One or more models could not have their AIC computed.")
+  }
+  
+  # Calculate ΔAIC
+  delta_aic <- aic_values - min(aic_values)
+  
+  # Calculate Akaike weights
+  rel_likelihood <- exp(-0.5 * delta_aic)
+  akaike_weights <- rel_likelihood / sum(rel_likelihood)
+  
+  # Create results data frame
+  results <- data.frame(
+    Model = model_names,
+    AIC = round(aic_values, 3),
+    Delta_AIC = round(delta_aic, 3),
+    Akaike_Weight = round(akaike_weights, 4),
+    stringsAsFactors = FALSE
+  )
+  
+  # Order by AIC
+  results <- results[order(results$AIC), ]
+  rownames(results) <- NULL
+  
+  return(results)
+}
+```
+#### aic comparison
+```{r}
+
+wing_data_final$hinge <- pmax(wing_data_final$Age - 28.1, 0)
+#model 1. Brood and Bird as random effect
+m1 <- lm(scale_weight ~ Age*Sex + hinge + Brood + Bird, data = wing_data_final)
+m2 <- lmer(scale_weight ~ Age*Sex + hinge + (1|Brood/Bird), data = wing_data_final)
+# model 2. Brood as a fixed term 
+m3 <- lmer(scale_weight ~ Age*Sex + Brood + hinge + (1|Bird), data = wing_data_final)
+
+# Compare models
+compare_models_aic(list(
+  "linear model" = m1,
+  "(1|Brood/Bird)" = m2,
+  "(1|Bird)" = m3
+))
+
+
+```
+
+
+
+#### Plot
+```{r}
+
+pred_bw <- ggpredict(lmer_bw, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 28.5
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_bw, newdat, re.form = NA)
+
+
+plot_bw_final <-
+  plot_bw_age +
+  # thick black line underneath
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 28.5, linetype = "dashed", color = "red")
+
+plot_bw_final
+
+```
+
+### wingspan
+### bodyweight
+#### lmer
+-Age and Hinge significant
+- Slope before and after breakpoint both significant
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 28.3, 0)
+
+lmer_bw <- lmer(wingspan_calc~ Age*Sex + Brood + hinge + (1|Bird), data = win)
+
+# computing residuals
+raw_cond_bw <- compute_redres(lmer_bw)
+
+hist(raw_cond_bw) #normality in histogram
+plot_redres(lmer_bw) #heteroskedasticity
+plot_resqq(lmer_bw) #normality of residuals
+plot_ranef(lmer_bw) 
+## Oops not so well behaving
+summary(lmer_bw)
+Anova(lmer_bw, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_bw, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_bw, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+## LEGS
+### max Ftot / bw
+-Age and Hinge signifcant 
+-before and after breakpoint significant
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 36.5, 0)
+
+lmer_maxF_bw <- lmer(max_Ftot_bw ~ Age*Sex + Brood + hinge + (1|Bird), data = force_data)
+
+# computing residuals
+raw_cond_maxF <- compute_redres(lmer_maxF_bw)
+
+hist(raw_cond_maxF) #normality in histogram
+plot_redres(lmer_maxF_bw) #heteroskedasticity
+plot_resqq(lmer_maxF_bw) #normality of residuals
+plot_ranef(lmer_maxF_bw) 
+## Oops not so well behaving
+summary(lmer_maxF_bw)
+Anova(lmer_maxF_bw, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_maxF_bw, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_maxF_bw, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+pred_bw <- ggpredict(lmer_maxF_bw, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 36.5
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_maxF_bw, newdat, re.form = NA)
+
+
+plot_maxF_final <-
+  plot_age_maxF_bw +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 36.5, linetype = "dashed", color = "red")
+
+plot_maxF_final
+
+```
+
+### max Fy / bw
+- Age and hinge significant
+- before and after breakpoint significant.
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 34.5, 0)
+
+lmer_Fy_bw <- lmer(Fy_maxFtot_bw ~ Age*Sex + Brood + hinge + (1|Bird), data = force_data)
+
+# computing residuals
+raw_cond_Fy_bw <- compute_redres(lmer_Fy_bw)
+
+hist(raw_cond_Fy_bw) #normality in histogram
+plot_redres(lmer_Fy_bw) #heteroskedasticity
+plot_resqq(lmer_Fy_bw) #normality of residuals
+plot_ranef(lmer_Fy_bw) 
+## Oops not so well behaving
+summary(lmer_Fy_bw)
+Anova(lmer_Fy_bw, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_Fy_bw, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_Fy_bw, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+pred_bw <- ggpredict(lmer_Fy_bw, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 34.5
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_Fy_bw, newdat, re.form = NA)
+
+
+plot_Fy_final <-
+  plot_age_Fy_bw +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 34.5, linetype = "dashed", color = "red")
+
+plot_Fy_final
+
+```
+### takeoff angle
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 34.0, 0)
+
+lmer_angle <- lmer(angle ~ Age*Sex + Brood + hinge + (1|Bird), data = force_data)
+
+# computing residuals
+raw_cond_angle <- compute_redres(lmer_angle)
+
+hist(raw_cond_angle) #normality in histogram
+plot_redres(lmer_angle) #heteroskedasticity
+plot_resqq(lmer_angle) #normality of residuals
+plot_ranef(lmer_angle) 
+## Oops not so well behaving
+summary(lmer_angle)
+Anova(lmer_angle, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_angle, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_angle, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+pred_bw <- ggpredict(lmer_angle, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 34.0
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_angle, newdat, re.form = NA)
+
+
+plot_angle_final <-
+  plot_age_angle +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 34.0, linetype = "dashed", color = "red")
+
+plot_angle_final
+
+```
+### impulse
+#### lmer
+- Age and hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 30.2, 0)
+
+lmer_impulse <- lmer(impulse*1000 ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_impulse <- compute_redres(lmer_impulse)
+
+hist(raw_cond_impulse) #normality in histogram
+plot_redres(lmer_impulse) #heteroskedasticity
+plot_resqq(lmer_impulse) #normality of residuals
+plot_ranef(lmer_impulse) 
+## Oops not so well behaving
+summary(lmer_impulse)
+Anova(lmer_impulse, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_impulse, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_impulse, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+#pred_bw <- ggpredict(lmer_impulse, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 30.2
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_impulse, newdat, re.form = NA)
+
+
+plot_impulse_final <-
+  plot_age_impulse +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 30.2, linetype = "dashed", color = "red")
+
+plot_impulse_final
+
+```
+### left impulse
+#### lmer
+- Age and hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+force_data$hinge <- pmax(force_data$Age - 32, 0)
+
+lmer_left_impulse <- lmer(left_impulse*1000 ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_left_impulse <- compute_redres(lmer_left_impulse)
+
+hist(raw_cond_left_impulse) #normality in histogram
+plot_redres(lmer_left_impulse) #heteroskedasticity
+plot_resqq(lmer_left_impulse) #normality of residuals
+plot_ranef(lmer_left_impulse) 
+## Oops not so well behaving
+summary(lmer_left_impulse)
+Anova(lmer_left_impulse, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_left_impulse, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_left_impulse, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+#pred_bw <- ggpredict(lmer_left_impulse, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 32
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_left_impulse, newdat, re.form = NA)
+
+
+plot_left_impulse_final <-
+  plot_left_impulse +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 32, linetype = "dashed", color = "red")
+
+plot_left_impulse_final
+
+```
+
+### right impulse
+#### lmer
+- Age and hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+breakpoint <- 24.9
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+lmer_right_impulse <- lmer(right_impulse*1000 ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_right_impulse <- compute_redres(lmer_right_impulse)
+
+hist(raw_cond_right_impulse) #normality in histogram
+plot_redres(lmer_right_impulse) #heteroskedasticity
+plot_resqq(lmer_right_impulse) #normality of residuals
+plot_ranef(lmer_right_impulse) 
+## Oops not so well behaving
+summary(lmer_right_impulse)
+Anova(lmer_right_impulse, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_right_impulse, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_right_impulse, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+
+# Create hinge variable
+breakpoint <- 24.9
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_right_impulse, newdat, re.form = NA)
+
+
+plot_right_impulse_final <-
+  plot_right_impulse +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red")
+
+plot_right_impulse_final
+
+```
+### duration -38.4
+#### lmer
+- Age and hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+breakpoint <- 38.4
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+lmer_duration <- lmer(duration ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_duration <- compute_redres(lmer_duration)
+
+hist(raw_cond_duration) #normality in histogram
+plot_redres(lmer_duration) #heteroskedasticity
+plot_resqq(lmer_duration) #normality of residuals
+plot_ranef(lmer_duration) 
+## Oops not so well behaving
+summary(lmer_duration)
+Anova(lmer_duration, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_duration, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_duration, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+
+# Create hinge variable
+breakpoint <- 38.4
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_duration, newdat, re.form = NA)
+
+
+plot_duration_final <-
+  plot_age_duration +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red")
+
+plot_duration_final
+
+```
+
+### left duration
+#### lmer
+- Age and hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+breakpoint <- 40
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+lmer_left_duration <- lmer(left_duration ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_left_duration <- compute_redres(lmer_left_duration)
+
+hist(raw_cond_left_duration) #normality in histogram
+plot_redres(lmer_left_duration) #heteroskedasticity
+plot_resqq(lmer_left_duration) #normality of residuals
+plot_ranef(lmer_left_duration) 
+## Oops not so well behaving
+summary(lmer_left_duration)
+Anova(lmer_left_duration, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_left_duration, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_left_duration, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+
+# Create hinge variable
+breakpoint <- 40
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_left_duration, newdat, re.form = NA)
+
+
+plot_left_duration_final <-
+  plot_left_duration +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red")
+
+plot_left_duration_final
+
+```
+### right duration - 33.1
+#### lmer
+- Age and hinge significant
+- after breakpoint not significant
+```{r}
+# Use precise breakpoint in hinge term
+breakpoint <- 33.1
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+lmer_right_duration <- lmer(right_duration ~ Age*Sex + Brood + hinge + (1|Brood/Bird), data = force_data)
+
+# computing residuals
+raw_cond_right_duration <- compute_redres(lmer_right_duration)
+
+hist(raw_cond_right_duration) #normality in histogram
+plot_redres(lmer_right_duration) #heteroskedasticity
+plot_resqq(lmer_right_duration) #normality of residuals
+plot_ranef(lmer_right_duration) 
+## Oops not so well behaving
+summary(lmer_right_duration)
+Anova(lmer_right_duration, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_right_duration, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_right_duration, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+
+# Create hinge variable
+breakpoint <- 33.1
+force_data$hinge <- pmax(force_data$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(force_data$Age), max(force_data$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(force_data$Brood),
+  hinge = pmax(seq(min(force_data$Age), max(force_data$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_right_duration, newdat, re.form = NA)
+
+
+plot_right_duration_final <-
+  plot_right_duration +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red")
+
+plot_right_duration_final
+
+```
+
+
+### Final plots
+```{r}
+
+plots_body_legs_significants <-
+  ggarrange(plot_bw_final, plot_maxF_final, 
+            plot_Fy_final, plot_angle_final,
+            ncol = 2, nrow=2
+            )
+plots_body_legs_significants
+```
+
+
+## TRAJECTORY
+### Z velocity
+- - - > + by age 
+- Age, Sex, Hinge, and Age&Sex interaction significant. 
+- Male faster but gets slower by age. 
+- before and after breakpoint significant.
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 32.9, 0)
+
+lmer_vz <- lmer(mean_vz ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+
+# computing residuals
+raw_cond_vz <- compute_redres(lmer_vz)
+
+hist(raw_cond_vz) #normality in histogram
+plot_redres(lmer_vz) #heteroskedasticity
+plot_resqq(lmer_vz) #normality of residuals
+plot_ranef(lmer_vz) 
+## Oops not so well behaving
+summary(lmer_vz)
+Anova(lmer_vz, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_vz, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_vz, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+
+```
+#### Plot
+```{r}
+pred_vz <- ggpredict(lmer_vz, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 32.9
+flights$hinge <- pmax(flights$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_vz, newdat, re.form = NA)
+
+
+plot_vz_final <-
+  plot_vz_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 32.9, linetype = "dashed", color = "red")
+
+plot_vz_final
+
+```
+
+### Y velocity
+- increase by age then plateau
+- Age and hinge significant 
+- before and after breakpoint significant
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 33.0, 0)
+
+lmer_vy <- lmer(mean_vy ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+
+# computing residuals
+raw_cond_vy <- compute_redres(lmer_vy)
+
+hist(raw_cond_vy) #normality in histogram
+plot_redres(lmer_vy) #heteroskedasticity
+plot_resqq(lmer_vy) #normality of residuals
+plot_ranef(lmer_vy) 
+## Oops not so well behaving
+summary(lmer_vy)
+Anova(lmer_vy, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_vy, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_vy, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+
+#### Plot
+```{r}
+pred_vy <- ggpredict(lmer_vy, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 33.0
+flights$hinge <- pmax(flights$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_vy, newdat, re.form = NA)
+
+
+plot_vy_final <-
+  plot_vy_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 33.0, linetype = "dashed", color = "red")
+
+plot_vy_final
+
+```
+
+### Y acceleration
+- decreases by age then plateau
+- Age and Hinge significant, Age:Sex (p = 0.099)
+- slope before and after significant. not 0. 
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 33.7, 0)
+
+lmer_accy <- lmer(mean_acc_y ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+
+# computing residuals
+raw_cond_accy <- compute_redres(lmer_accy)
+
+hist(raw_cond_accy) #normality in histogram
+plot_redres(lmer_accy) #heteroskedasticity
+plot_resqq(lmer_accy) #normality of residuals
+plot_ranef(lmer_accy) 
+## Oops not so well behaving
+summary(lmer_accy)
+Anova(lmer_accy, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_accy, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_accy, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+pred_accy <- ggpredict(lmer_accy, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 33.7
+flights$hinge <- pmax(flights$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_accy, newdat, re.form = NA)
+
+
+plot_accy_final <-
+  plot_accy_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 33.7, linetype = "dashed", color = "red")
+
+plot_accy_final
+```
+
+### tangential acceleration
+- decreases by age then plateau
+- Age and Hinge significant
+- slope before and after significant. not 0. 
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 33.8, 0)
+
+lmer_accres <- lmer(mean_acc_res ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_accres <- compute_redres(lmer_accres)
+
+hist(raw_cond_accres) #normality in histogram
+plot_redres(lmer_accres) #heteroskedasticity
+plot_resqq(lmer_accres) #normality of residuals
+plot_ranef(lmer_accres) 
+## Oops not so well behaving
+summary(lmer_accres)
+Anova(lmer_accres, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_accres, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_accres, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+pred_accres <- ggpredict(lmer_accres, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 33.8
+flights$hinge <- pmax(flights$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_accres, newdat, re.form = NA)
+
+
+plot_accres_final <-
+  plot_accres_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 33.8, linetype = "dashed", color = "red")
+
+plot_accres_final
+```
+### tangential velocity
+#### lmer
+- Age and Hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 34.3, 0)
+
+lmer_vres <- lmer(mean_v_res ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_vres <- compute_redres(lmer_vres)
+
+hist(raw_cond_vres) #normality in histogram
+plot_redres(lmer_vres) #heteroskedasticity
+plot_resqq(lmer_vres) #normality of residuals
+plot_ranef(lmer_vres) 
+## Oops not so well behaving
+summary(lmer_vres)
+Anova(lmer_vres, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_vres, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_vres, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+pred_vres <- ggpredict(lmer_vres, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+breakpoint <- 34.3
+flights$hinge <- pmax(flights$Age - breakpoint, 0)
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_vres, newdat, re.form = NA)
+
+
+plot_vres_final <-
+  plot_vres_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 34.3, linetype = "dashed", color = "red")
+
+plot_vres_final
+```
+### turn rate
+#### lmer
+- Age and Hinge significant
+- before and after breakpoint significant
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 41.7, 0)
+
+lmer_tr <- lmer(mean_turn_rate ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_tr <- compute_redres(lmer_tr)
+
+hist(raw_cond_tr) #normality in histogram
+plot_redres(lmer_tr) #heteroskedasticity
+plot_resqq(lmer_tr) #normality of residuals
+plot_ranef(lmer_tr) 
+## Oops not so well behaving
+summary(lmer_tr)
+Anova(lmer_tr, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_tr, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_tr, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### Plot
+```{r}
+pred_tr <- ggpredict(lmer_tr, terms = c("Age [all]", "hinge"))
+
+# Create hinge variable
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - 41.7, 0)
+)
+
+newdat$pred <- predict(lmer_tr, newdat, re.form = NA)
+
+
+plot_tr_final <-
+  plot_tr_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 41.7, linetype = "dashed", color = "red")
+
+plot_tr_final
+```
+
+### Z acceleration
+- Age, Hinge, and Age*Sex significant
+- Z acceleration increase 0.04 m/s^2 per day up to 48.3 days then decrease after.
+#### lmer
+```{r}
+
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 33.7, 0)
+
+lmer_accz <- lmer(mean_acc_z ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_accz <- compute_redres(lmer_accz)
+
+hist(raw_cond_accz) #normality in histogram
+plot_redres(lmer_accz) #heteroskedasticity
+plot_resqq(lmer_accz) #normality of residuals
+plot_ranef(lmer_accz) 
+## Oops not so well behaving
+summary(lmer_accz)
+Anova(lmer_accz, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_accz, "Age = 0") 
+# Is the slope before the breakpoint flat? -> no
+
+linearHypothesis(lmer_accz, "Age+hinge = 0") 
+# Is the slope after the breakpoint flat? -> no
+
+```
+#### plot
+```{r}
+pred_vres <- ggpredict(lmer_accz, terms = c("Age [all]", "hinge"))
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - 33.7, 0)
+)
+
+newdat$pred <- predict(lmer_accz, newdat, re.form = NA)
+
+
+plot_accz_final <-
+  plot_accz_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 33.7, linetype = "dashed", color = "red")
+
+plot_accz_final
+
+
+
+```
+
+### X velocity
+#### lmer
+- diagnostics looking really good 
+
+```{r}
+
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 59.9, 0)
+
+lmer_vx <- lmer(mean_vx ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_vx <- compute_redres(lmer_vx)
+
+hist(raw_cond_vx) #normality in histogram
+plot_redres(lmer_vx) #heteroskedasticity
+plot_resqq(lmer_vx) #normality of residuals
+plot_ranef(lmer_vx) 
+## Oops not so well behaving
+summary(lmer_vx)
+Anova(lmer_vx, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_vx, "Age = 0") 
+# Is the slope before the breakpoint flat? -> no
+
+linearHypothesis(lmer_vx, "Age+hinge = 0") 
+# Is the slope after the breakpoint flat? -> no
+
+```
+#### plot
+```{r}
+pred_vx <- ggpredict(lmer_vx, terms = c("Age [all]", "hinge"))
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - 59.9, 0)
+)
+
+newdat$pred <- predict(lmer_vx, newdat, re.form = NA)
+
+plot_vx_final <-
+  plot_vx_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 59.9, linetype = "dashed", color = "red")
+
+plot_vx_final
+
+
+
+```
+### X acceleration
+#### lmer
+- diagnostics looking really good 
+- Age, Sex, Hinge, Age:Sex, basically everything significant
+- 
+```{r}
+
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 74.6, 0)
+
+lmer_accx <- lmer(mean_acc_x ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_accx <- compute_redres(lmer_accx)
+
+hist(raw_cond_accx) #normality in histogram
+plot_redres(lmer_accx) #heteroskedasticity
+plot_resqq(lmer_accx) #normality of residuals
+plot_ranef(lmer_accx) 
+## Oops not so well behaving
+summary(lmer_accx)
+Anova(lmer_accx, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_accx, "Age = 0") 
+# Is the slope before the breakpoint flat? -> no
+
+linearHypothesis(lmer_accx, "Age+hinge = 0") 
+# Is the slope after the breakpoint flat? -> no
+
+```
+
+#### plot
+```{r}
+pred_accx <- ggpredict(lmer_accx, terms = c("Age [all]", "hinge"))
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - 74.6, 0)
+)
+
+newdat$pred <- predict(lmer_accx, newdat, re.form = NA)
+
+plot_accx_final <-
+  plot_accx_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 74.6, linetype = "dashed", color = "red")
+
+plot_accx_final
+
+
+
+```
+### downstroke - n.s.
+#### lmer
+- diagnostics looking not too good. Brood singular  
+- Just Age significant. 
+- head displacement increases until 79.9, then almost plateau
+- after breakpoint NOT SIGNIFICANT!
+```{r}
+
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 79.9, 0)
+
+lmer_downstroke <- lmer(downstroke_amplitude_m ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_downstroke <- compute_redres(lmer_downstroke)
+
+hist(raw_cond_downstroke) #normality in histogram
+plot_redres(lmer_downstroke) #heteroskedasticity
+plot_resqq(lmer_downstroke) #normality of residuals
+plot_ranef(lmer_downstroke) 
+## Oops not so well behaving
+summary(lmer_downstroke)
+Anova(lmer_downstroke, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_downstroke, "Age = 0") 
+# Is the slope before the breakpoint flat? -> no
+
+linearHypothesis(lmer_downstroke, "Age+hinge = 0") 
+# Is the slope after the breakpoint flat? -> no
+# Brood singular
+```
+#### plot
+```{r}
+pred_downstroke <- ggpredict(lmer_downstroke, terms = c("Age [all]", "hinge"))
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - 79.9, 0)
+)
+
+newdat$pred <- predict(lmer_downstroke, newdat, re.form = NA)
+
+plot_downstroke_final <-
+  plot_downstroke_m +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 79.9, linetype = "dashed", color = "red")
+
+plot_downstroke_final
+
+
+
+```
+### wingbeat frequency - n.s.
+- Age, hinge, and Age:Sex significant
+- wingbeat frequency decreases 0.03Hz/day and at 42.9 day increases 0.03Hz/day
+#### lmer
+```{r}
+# Use precise breakpoint in hinge term
+flights$hinge <- pmax(flights$Age - 42.9, 0)
+
+lmer_wb <- lmer(wingbeat_frequency ~ Age*Sex + hinge+ (1|Brood/Bird), data = flights)
+# computing residuals
+raw_cond_wb <- compute_redres(lmer_wb)
+
+hist(raw_cond_wb) #normality in histogram
+plot_redres(lmer_wb) #heteroskedasticity
+plot_resqq(lmer_wb) #normality of residuals
+plot_ranef(lmer_wb) 
+## Oops not so well behaving
+summary(lmer_wb)
+Anova(lmer_wb, type =3, test.statistic = "Chisq") # Does age affect bodyweight overall?
+
+
+linearHypothesis(lmer_wb, "Age = 0") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(lmer_wb, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+# Brood singular 
+```
+#### plot
+```{r}
+pred_vres <- ggpredict(lmer_wb, terms = c("Age [all]", "hinge"))
+
+# Get fitted values across Age
+newdat <- data.frame(
+  Age = seq(min(flights$Age), max(flights$Age), by = 1),
+  Sex = "F",        # or average over Sex
+  Brood = mean(flights$Brood),
+  hinge = pmax(seq(min(flights$Age), max(flights$Age), by = 1) - breakpoint, 0)
+)
+
+newdat$pred <- predict(lmer_wb, newdat, re.form = NA)
+
+
+plot_wb_final <-
+  plot_wb_mean +
+  geom_line(
+    data = newdat,
+    aes(x = Age, y = pred),
+    color = "#1f77b4", size = 1.5, inherit.aes = FALSE, #linetype = "dashed"
+  ) +
+  #geom_line(
+  #  data = newdat,
+  #  aes(x = Age, y = pred),color = "red",
+  #  size = 1.2, inherit.aes = FALSE
+  #) +
+  geom_vline(xintercept = 42.9, linetype = "dashed", color = "red")
+
+plot_wb_final
+```
+
+### Final plots
+```{r}
+
+plots_trajectories_significants <-
+  ggarrange(plot_vx_final, plot_vy_final, plot_vz_final, 
+          plot_accx_final, plot_accy_final, plot_accz_final,
+          plot_tr_final, plot_vres_final, plot_accres_final,
+          
+          ncol = 3, nrow=3
+          )
+
+```
+## wing area
+- nothing significant
+```{r}
+
+#breakpoint not significant
+#wing_sorted$hinge <- pmax(wing_sorted$Age - 34.3, 0)
+
+#m model
+lmer_wa <- lmer(wingarea ~ Age*Sex + Brood + (1|Bird), data = wing_sorted)
+
+# computing residuals
+raw_cond_wa <- compute_redres(lmer_wa)
+
+hist(raw_cond_wa) #normality in histogram
+plot_redres(lmer_wa) #heteroskedasticity
+plot_resqq(lmer_wa) #normality of residuals
+plot_ranef(lmer_wa) 
+# very good fit as lmer
+
+
+#testing 
+summary(lmer_wa)
+Anova(lmer_wa, type =3, test.statistic = "Chisq")
+
+#hypothesis testing
+linearHypothesis(lmer_wa, "Age = 0") # Is the slope before the breakpoint flat? -> no
+#linearHypothesis(lmer_wa, "Age+hinge = 0") # Is the slope after the breakpoint flat? -> no
+
+```
