@@ -332,9 +332,9 @@ def plot_flight_data(flight_data_df1, df):
             print(f"Skipping FlightID {id} — no data found.")
             continue
 
-        age = trial_data[trial_data['FlightID'] == trial_data]['Age'].values[0]
-        bird = trial_data[trial_data['FlightID'] == trial_data]['Bird'].values[0]
-        takeoff = trial_data[trial_data['Flight_ID'] == trial_data]['Takeoff'].values[0]
+        age = trial_data['Age'].values[0]
+        bird = trial_data['Bird'].values[0]
+        takeoff = trial_data['Takeoff'].values[0]
 
         time = trial_data['Time'].values
 
@@ -492,11 +492,11 @@ def get_force(df):
         # bodyweight
         bodyweight = zbreturn_bw_Ftot(trial_data)
 
-        # NEW - impulse 
-
         
         # take-off angle 
-        angle = np.rad2deg(np.arctan2(Fx_maxFtot, Fy_maxFtot))
+        angle = np.rad2deg(np.arctan2(-Fx_maxFtot, Fy_maxFtot)) # to reflect the downward direction of Fx. - because x is minus. 
+        # Note the role reversal: the "y-coordinate" is the first function parameter, the "x-coordinate" is the second. 
+        #In my code, the conventional "y-coordinate" is x-axis. and flipped the direction because downward force that produces upward motion is -X. 
 
         # Create a new row as a dictionary (faster than creating a DataFrame for each row)
         new_row = {
