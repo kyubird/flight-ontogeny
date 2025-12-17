@@ -159,3 +159,12 @@ Thumbs.db
 # Common editor files
 *~
 *.swp
+
+# R temporary things
+.RDataTmp
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
