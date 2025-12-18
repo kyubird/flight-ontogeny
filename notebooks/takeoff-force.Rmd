@@ -249,7 +249,7 @@ p9 <- ggplot(df, aes(cumul_time, inst_acc_Z)) +
 p10 <- ggplot(df, aes(cumul_time, inst_V_res)) +
   geom_line(color="purple") + geom_point(color="purple") + ggtitle("Velocity Resultant")
 
-p11 <- ggplot(df, aes(cumul_time, inst_acc_res)) +
+p11 <- ggplot(df, aes(cumul_time, inst_acc_tan)) +
   geom_line(color="orange") + geom_point(color="darkorange") + ggtitle("Tangential acceleration")
 
 p12 <- ggplot(df, aes(cumul_time, inst_acc_mag)) +
@@ -501,7 +501,7 @@ trend_df_init <- trend_df %>%
 ```
 ##### relative
 ```{r}
-plot_raw_Ftot <- plot_age_var(max_Ftot_bw, force_data, "force magnitude relative to perching weight")
+plot_raw_Ftot <- plot_age_var(max_Ftot_bw, force_data, "|F| / bw")
 plot_raw_Ftot
 ```
 ##### raw
@@ -737,6 +737,10 @@ plot_age_Fx
 ```
 ##### relative
 ```{r}
+plot_age_Fz_bw <- plot_age_var(Fx_maxFtot_bw, force_data, "Fz/bw (N)")
+plot_age_Fz_bw
+```
+```{r}
 
 summary_df <- force_data %>%
   group_by(Bird, Age) %>%
@@ -759,7 +763,8 @@ plot_age_Fx_bw <- ggplot(force_data, aes(x = Age, y = Fx_maxFtot_bw, color = Bir
   geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
   geom_errorbar(
     data = summary_df,
-    aes(x=Age, ymin = mean_Fx_bw - sd_Fx_bw, ymax = mean_Fx_bw + sd_Fx_bw, color = Bird, alpha = 0.6),
+    aes(x=Age, ymin = mean_Fx_bw - sd_Fx_bw, 
+        ymax = mean_Fx_bw + sd_Fx_bw, color = Bird, alpha = 0.6),
     width = 2, size = 0.8,
     inherit.aes = FALSE) +
   
@@ -790,7 +795,7 @@ plot_age_Fx_bw <- ggplot(force_data, aes(x = Age, y = Fx_maxFtot_bw, color = Bir
     inherit.aes = FALSE) +
   
    scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "Fx / bw (N)", title = "") +
+  labs(x = "Age", y = "Fz / bw (N)", title = "") +
   #ylim(10, 25)+
   guides(alpha = "none")+
   theme_minimal() +
@@ -998,7 +1003,7 @@ plot_right_duration
 #### f. takeoff angle 
 ```{r}
 
-plot_age_angle <- plot_age_var(angle, force_data, "takeoff angle (degrees)")
+plot_age_angle <- plot_age_var(angle, force_clean, "takeoff angle (degrees)")
 plot_age_angle 
 ```
 
@@ -1104,169 +1109,6 @@ dim(force_clean) #961
 ```
 
 ### FLIGHT SPEED
-
-#### a. turn rate
-##### mean
-```{r}
-plot_tr_mean <- plot_age_var(mean_turn_rate, flights, "mean turn rate (degrees/s)") +ylim(0,750)
-plot_tr_mean
-
-```
-
-##### max
-```{r}
-
-plot_tr_max <- plot_age_var(max_turn_rate, flights, "max turn rate (degrees/s)") +ylim(-1250, 5000)
-plot_tr_max
-```
-
-
-#### b. centripetal acceleration
-##### mean
-```{r}
-
-plot_ctracc_mean <- plot_age_var(mean_centri_acc, flights, "mean centripetal acceleration (m/s^2)") +ylim(0, 30)
-plot_ctracc_mean
-```
-
-##### max
-```{r}
-
-plot_ctracc_max <- plot_age_var(max_centri_acc, flights, "max centripetal acceleration (m/s^2)") +ylim(-50, 150)
-plot_ctracc_max
-
-```
-#### c. resultant velocity
-##### mean
-```{r}
-plot_vres_mean <- plot_age_var(mean_v_res, flights, "mean resultant velocity (m/s)")
-plot_vres_mean
-```
-##### max
-```{r}
-plot_vres_max <- plot_age_var(variable = max_v_res, df = flights, title = "max resultant velocity (m/s)")
-plot_vres_max
-
-```
-
-#### d. resultant acceleration
-##### mean
-```{r}
-
-plot_accres_mean <- plot_age_var(mean_acc_res, flights, "mean resultant acceleration (m/s^2)")
-plot_accres_mean
-```
-##### max
-```{r}
-plot_accres_max <- plot_age_var(max_acc_res, flights, "max resultant acceleration (m/s^2)") +ylim(-100, 150)
-plot_accres_max
-
-```
-#### e. X vel & acc
-##### mean v
-```{r}
-plot_vx_mean <- plot_age_var(mean_vx, flights, "mean X velocity (m/s)")
-plot_vx_mean
-```
-##### max v
-```{r}
-plot_vx_max <- plot_age_var(max_vx, flights, "max X velocity (m/s)")
-plot_vx_max
-```
-##### mean acc
-```{r}
-plot_accx_mean <- plot_age_var(mean_acc_x, flights, "mean X acceleration (m/s^2)") 
-plot_accx_mean
-
-```
-##### max acc
-```{r}
-plot_accx_max <- plot_age_var(max_acc_x, flights, "max X acceleration (m/s^2)") 
-plot_accx_max
-
-```
-#### f. Y vel & acc
-##### mean v
-```{r}
-plot_vy_mean <- plot_age_var(mean_vy, flights, "mean Y velocity (m/s)") 
-plot_vy_mean
-```
-##### max v
-```{r}
-plot_vy_max <- plot_age_var(max_vy, flights, "max Y velocity (m/s)")
-plot_vy_max +ylim(0, 6)
-```
-##### mean acc
-```{r}
-plot_accy_mean <- plot_age_var(mean_acc_y, flights, "mean Y acceleration (m/s^2)") 
-plot_accy_mean
-```
-##### max acc
-```{r}
-plot_accy_max <- plot_age_var(mean_acc_y, flights, "max Y acceleration (m/s^2)") 
-plot_accy_max
-```
-#### g. Z vel & acc
-##### mean v
-```{r}
-plot_vz_mean <- plot_age_var(mean_vz, flights, "mean Z velocity (m/s)")
-plot_vz_mean
-```
-##### max v
-```{r}
-plot_vz_max <- plot_age_var(max_vz, flights, "max Z velocity (m/s)")
-plot_vz_max
-
-```
-##### mean acc
-```{r}
-plot_accz_mean <- plot_age_var(mean_acc_z, flights, "mean Z acceleration (m/s^2)")
-plot_accz_mean
-
-```
-##### max acc
-```{r}
-plot_accz_max <- plot_age_var(max_acc_z, flights, "max Z acceleration (m/s^2)") 
-plot_accz_max
-```
-### WINGBEATS
-#### frequency
-```{r}
-plot_wb_mean <- plot_age_var(wingbeat_frequency, flights, "wingbeat frequency (Hz)")
-plot_wb_mean
-```
-#### upstroke
-```{r}
-plot_upstroke_acc <- plot_age_var(upstroke_amplitude_acc, flights, "upstroke_head_acc (m/s^2)")
-plot_upstroke_acc
-
-plot_upstroke_mm <- plot_age_var(1000*upstroke_amplitude_m, flights_wing, "upstroke head displacement (m)")
-plot_upstroke_mm
-```
-#### downstroke
-```{r}
-plot_downstroke_acc <- plot_age_var(downstroke_amplitude_acc, flights, "downstroke_head_acc (m/s^2)")
-plot_downstroke_acc
-
-plot_downstroke_mm <- plot_age_var(1000*downstroke_amplitude_m, flights_wing, "downstroke head displacement (m)")
-plot_downstroke_mm
-```
-
-### ggarrange Plots
-```{r}
-ggarrange(plot_vx_mean, plot_vy_mean, plot_vz_mean, 
-          plot_accx_mean, plot_accy_mean, plot_accz_mean, nrow = 2, ncol = 3)
-
-ggarrange(plot_vx_max, plot_vy_max, plot_vz_max,
-          plot_accx_max, plot_accy_max, plot_accz_max, nrow = 2, ncol = 3)
-
-ggarrange(plot_vres_mean, plot_accres_mean, plot_tr_mean, plot_ctracc_mean, nrow = 2, ncol =2)
-
-ggarrange(plot_vres_max, plot_accres_max, plot_tr_max, plot_ctracc_max, nrow = 2, ncol =2 )
-
-ggarrange(plot_wb_mean, plot_downstroke_m, plot_upstroke_m, nrow = 1, ncol = 3)
-```
-
 ### OUTLIERS detection
 ```{r}
 test_vx <- rosnerTest(flights$mean_vx, k= 10)
@@ -1292,7 +1134,7 @@ test_accy$all.stats
 test_accz <- rosnerTest(flights$mean_acc_z, k = 10)
 test_accz$all.stats
 
-test_accres <- rosnerTest(flights$mean_acc_res, k = 10) #tangential acceleration
+test_accres <- rosnerTest(flights$mean_acc_tan, k = 10) #tangential acceleration
 test_accres$all.stats
 ```
 ```{r}
@@ -1390,6 +1232,175 @@ dim(flights_tort) #923
 dim(flights_wing) #894
 
 ```
+#### a. turn rate
+##### mean
+```{r}
+plot_tr_mean <- plot_age_var(mean_turn_rate, flights_tort, "turn rate (°/s)")
+plot_tr_mean
+
+```
+
+##### max
+```{r}
+
+plot_tr_max <- plot_age_var(max_turn_rate, flights, "max turn rate (°/s)") +ylim(-1250, 5000)
+plot_tr_max
+```
+
+
+#### b. centripetal acceleration
+##### mean
+```{r}
+ytitle <- expression(a[centripetal]~(m/s^2))
+plot_ctracc_mean <- plot_age_var(mean_centri_acc, flights_tort, ytitle) +ylim(0, 30)
+plot_ctracc_mean
+```
+
+##### max
+```{r}
+
+plot_ctracc_max <- plot_age_var(max_centri_acc, flights, "max centripetal acceleration (m/s^2)") +ylim(-50, 150)
+plot_ctracc_max
+
+```
+#### c. resultant velocity
+##### mean
+```{r}
+plot_vres_mean <- plot_age_var(mean_v_res, flights, "|v| (m/s)")
+plot_vres_mean
+```
+##### max
+```{r}
+plot_vres_max <- plot_age_var(variable = max_v_res, df = flights, title = "max resultant velocity (m/s)")
+plot_vres_max
+
+```
+
+#### d. tangential acceleration
+##### mean
+```{r}
+ytitle <- expression(a[tan]~(m/s^2))
+plot_tacc_mean <- plot_age_var(mean_acc_tan, flights, ytitle)
+plot_tacc_mean
+```
+##### max
+```{r}
+plot_accres_max <- plot_age_var(max_acc_tan, flights, "max resultant acceleration (m/s^2)") +ylim(-100, 150)
+plot_accres_max
+
+```
+#### e. X vel & acc
+##### mean v
+```{r}
+ytitle <- expression(v[x]~(m/s))
+plot_vx_mean <- plot_age_var(mean_vx, flights, ytitle)
+plot_vx_mean
+```
+##### max v
+```{r}
+plot_vx_max <- plot_age_var(max_vx, flights, "max X velocity (m/s)")
+plot_vx_max
+```
+##### mean acc
+```{r}
+ytitle <- expression(acc[x]~(m/s^2))
+plot_accx_mean <- plot_age_var(mean_acc_x, flights, ytitle) 
+plot_accx_mean
+
+```
+##### max acc
+```{r}
+plot_accx_max <- plot_age_var(max_acc_x, flights, "max X acceleration (m/s^2)") 
+plot_accx_max
+
+```
+#### f. Y vel & acc
+##### mean v
+```{r}
+ytitle <- expression(v[y]~(m/s))
+plot_vy_mean <- plot_age_var(mean_vy, flights, ytitle) 
+plot_vy_mean
+```
+##### max v
+```{r}
+plot_vy_max <- plot_age_var(max_vy, flights, "max Y velocity (m/s)")
+plot_vy_max +ylim(0, 6)
+```
+##### mean acc
+```{r}
+ytitle <- expression(acc[y]~(m/s^2))
+plot_accy_mean <- plot_age_var(mean_acc_y, flights_speed, ytitle) 
+plot_accy_mean
+```
+##### max acc
+```{r}
+plot_accy_max <- plot_age_var(mean_acc_y, flights, "max Y acceleration (m/s^2)") 
+plot_accy_max
+```
+#### g. Z vel & acc
+##### mean v
+```{r}
+ytitle <- expression(v[z]~(m/s))
+plot_vz_mean <- plot_age_var(mean_vz, flights, ytitle)
+plot_vz_mean
+```
+##### max v
+```{r}
+plot_vz_max <- plot_age_var(max_vz, flights, "max Z velocity (m/s)")
+plot_vz_max
+
+```
+##### mean acc
+```{r}
+ytitle <- expression(acc[z]~(m/s^2))
+plot_accz_mean <- plot_age_var(mean_acc_z, flights_speed, ytitle)
+plot_accz_mean
+
+```
+##### max acc
+```{r}
+plot_accz_max <- plot_age_var(max_acc_z, flights, "max Z acceleration (m/s^2)") 
+plot_accz_max
+```
+### WINGBEATS
+#### frequency
+```{r}
+plot_wb_mean <- plot_age_var(wingbeat_frequency, flights_wing, "wingbeat frequency (Hz)")
+plot_wb_mean
+```
+#### upstroke
+```{r}
+plot_upstroke_acc <- plot_age_var(upstroke_amplitude_acc, flights, "upstroke_head_acc (m/s^2)")
+plot_upstroke_acc
+
+plot_upstroke_mm <- plot_age_var(1000*upstroke_amplitude_m, flights_wing, "upstroke head displacement (mm)")
+plot_upstroke_mm
+```
+#### downstroke
+```{r}
+plot_downstroke_acc <- plot_age_var(downstroke_amplitude_acc, flights, "downstroke_head_acc (m/s^2)")
+plot_downstroke_acc
+
+plot_downstroke_mm <- plot_age_var(1000*downstroke_amplitude_m, flights_wing, "downstroke head displacement (mm)")
+plot_downstroke_mm
+```
+
+### ggarrange Plots
+```{r}
+ggarrange(plot_vx_mean, plot_vy_mean, plot_vz_mean, 
+          plot_accx_mean, plot_accy_mean, plot_accz_mean, nrow = 2, ncol = 3)
+
+ggarrange(plot_vx_max, plot_vy_max, plot_vz_max,
+          plot_accx_max, plot_accy_max, plot_accz_max, nrow = 2, ncol = 3)
+
+ggarrange(plot_vres_mean, plot_tacc_mean, plot_tr_mean, plot_ctracc_mean, nrow = 2, ncol =2)
+
+ggarrange(plot_vres_max, plot_accres_max, plot_tr_max, plot_ctracc_max, nrow = 2, ncol =2 )
+
+ggarrange(plot_wb_mean, plot_downstroke_mm, plot_upstroke_mm, nrow = 1, ncol = 3)
+```
+
+
 
 
 # II. Model analysis 
@@ -1719,6 +1730,158 @@ plot_final <- function(breakpoint, breakpoint_se,
 
 
 ```
+## function plot_final2
+- for functions that don't show breakpoint SEs
+- the only difference is y_top <- max(yr)*0.95
+```{r}
+
+plot_final2 <- function(breakpoint, breakpoint_se,
+                           model,            # lmer model
+                           df,               # data used for model
+                           base_plot,        # ggplot object
+                           include_brood = TRUE,
+                           brood_level = "Box5",
+                           sex = "M"
+                           ) {
+  df <- as.data.frame(df)
+  # 1) Hinge coding
+  df$hinge <- pmin(df$Age - breakpoint, 0)
+
+  # 2) Age sequence
+  age_seq <- seq(min(df$Age, na.rm = TRUE), max(df$Age, na.rm = TRUE), by = 1)
+
+  # 3) Ensure factors
+  if ("Sex" %in% names(df) && !is.factor(df$Sex)) df$Sex <- factor(df$Sex)
+  if ("Brood" %in% names(df) && !is.factor(df$Brood)) df$Brood <- factor(df$Brood)
+
+  # 4) Base newdat
+  newdat_out <- data.frame(
+    Age = age_seq,
+    Sex = factor(sex, levels = levels(df$Sex)),
+    hinge = pmin(age_seq - breakpoint, 0)
+  )
+
+  # 5) Add Brood if requested
+  if (include_brood) {
+    if (!("Brood" %in% names(df))) {
+      stop("'Brood' column not found in df.")
+    }
+    if (!(brood_level %in% levels(df$Brood))) {
+      warning(sprintf("brood_level='%s' not found; using reference '%s'.",
+                      brood_level, levels(df$Brood)[1]))
+      brood_level <- levels(df$Brood)[1]
+    }
+    newdat_out$Brood <- factor(brood_level, levels = levels(df$Brood))
+  }
+
+  # 6) Predict (population-level)
+  newdat_out$pred <- predict(model, newdat_out, re.form = NA)
+
+  # 7) Compose plot
+  yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
+  y_top <- max(yr)*0.95
+
+  p <- base_plot +
+    
+    ggplot2::geom_line(
+      data = newdat_out,
+      ggplot2::aes(x = Age, y = pred),
+      color = "#1f77b4", size = 1.5, inherit.aes = FALSE
+    ) +
+    ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
+    ggplot2::annotate(
+        "segment",
+        x = breakpoint - breakpoint_se,
+        xend = breakpoint + breakpoint_se,
+        y    = y_top,
+        yend = y_top,
+        color = "#E2AFDE",
+        linewidth = 3,
+        alpha = 0.7) +
+    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))
+  
+
+  return(list(plot = p, newdat = newdat_out))
+}
+
+
+```
+## function plot_final3
+- for functions that don't show breakpoint SEs
+- the only difference is y_top <- max(yr)*0.96
+```{r}
+
+plot_final3 <- function(breakpoint, breakpoint_se,
+                           model,            # lmer model
+                           df,               # data used for model
+                           base_plot,        # ggplot object
+                           include_brood = TRUE,
+                           brood_level = "Box5",
+                           sex = "M"
+                           ) {
+  df <- as.data.frame(df)
+  # 1) Hinge coding
+  df$hinge <- pmin(df$Age - breakpoint, 0)
+
+  # 2) Age sequence
+  age_seq <- seq(min(df$Age, na.rm = TRUE), max(df$Age, na.rm = TRUE), by = 1)
+
+  # 3) Ensure factors
+  if ("Sex" %in% names(df) && !is.factor(df$Sex)) df$Sex <- factor(df$Sex)
+  if ("Brood" %in% names(df) && !is.factor(df$Brood)) df$Brood <- factor(df$Brood)
+
+  # 4) Base newdat
+  newdat_out <- data.frame(
+    Age = age_seq,
+    Sex = factor(sex, levels = levels(df$Sex)),
+    hinge = pmin(age_seq - breakpoint, 0)
+  )
+
+  # 5) Add Brood if requested
+  if (include_brood) {
+    if (!("Brood" %in% names(df))) {
+      stop("'Brood' column not found in df.")
+    }
+    if (!(brood_level %in% levels(df$Brood))) {
+      warning(sprintf("brood_level='%s' not found; using reference '%s'.",
+                      brood_level, levels(df$Brood)[1]))
+      brood_level <- levels(df$Brood)[1]
+    }
+    newdat_out$Brood <- factor(brood_level, levels = levels(df$Brood))
+  }
+
+  # 6) Predict (population-level)
+  newdat_out$pred <- predict(model, newdat_out, re.form = NA)
+
+  # 7) Compose plot
+  yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
+  y_top <- max(yr)*0.97
+
+  p <- base_plot +
+    
+    ggplot2::geom_line(
+      data = newdat_out,
+      ggplot2::aes(x = Age, y = pred),
+      color = "#1f77b4", size = 1.5, inherit.aes = FALSE
+    ) +
+    ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
+    ggplot2::annotate(
+        "segment",
+        x = breakpoint - breakpoint_se,
+        xend = breakpoint + breakpoint_se,
+        y    = y_top,
+        yend = y_top,
+        color = "#E2AFDE",
+        linewidth = 3,
+        alpha = 0.7) +
+    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))
+  
+
+  return(list(plot = p, newdat = newdat_out))
+}
+
+
+```
 ## A. Significant
 ### MORPHOLOGY
 #### bodyweight - 28.1
@@ -1765,72 +1928,29 @@ anova_sw <- Anova(m_sw, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 #before slope = 0?
-bs_sw <- linearHypothesis(m_sw, "Age+hinge = 0", test = "F") %>% as.data.frame()# Is the slope before the breakpoint flat? -> no
+linearHypothesis(m_sw, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
 
 #after slope = 0?
-as_sw <- linearHypothesis(m_sw, "Age = 0", test = "F") %>% as.data.frame() # Is the slope after the breakpoint flat? -> no
+linearHypothesis(m_sw, "Age = 0", test = "F")  # Is the slope after the breakpoint flat? -> no
 
 #same slope?
-ss_sw <- linearHypothesis(m_sw, "Age = Age+hinge", test = "F") %>% as.data.frame()#Is the slope before and after the same? -> n
+linearHypothesis(m_sw, "Age = Age+hinge", test = "F") #Is the slope before and after the same? -> n
 
 #before breakpoint slope estimate
-est_bs_sw <- deltaMethod(m_sw, "Age + hinge") %>% as.data.frame()
+deltaMethod(m_sw, "Age + hinge") 
 
 #after breakpoint slope estimate
-est_as_sw <- deltaMethod(m_sw, "Age") %>% as.data.frame()
-
-anova_sw
-bs_sw
-as_sw
-ss_sw
-est_bs_sw
-est_as_sw
-
-```
-
-
-```{r}
-
-ageF <- anova_sw["Age",]$F
-  ageDf <- anova_sw["Age",]$Df
-  ageDf.res <- anova_sw["Age",]$Df.res
-  ageP <- anova_sw["Age",]$p_FDR
-  
-  SexF <- anova_sw["Sex",]$F
-  SexDf <- anova_sw["Sex",]$Df
-  SexDf.res <- anova_sw["Sex",]$Df.res
-  SexP <- anova_sw["Sex",]$p_FDR
-  
-  BroodF <- anova_sw["Brood",]$F
-  BroodDf <- anova_sw["Brood",]$Df
-  BroodDf.res <- anova_sw["Brood",]$Df.res
-  BroodP <- anova_sw["Brood",]$p_FDR
-  
-  hingeF <- anova_sw["hinge",]$F
-  hingeDf <- anova_sw["hinge",]$Df
-  hingeDf.res <- anova_sw["hinge",]$Df.res
-  hingeP <- anova_sw["hinge",]$p_FDR
-  
+deltaMethod(m_sw, "Age") 
 
 
 
 ```
 
-
-```{r}
-# Before slope
-print(deltaMethod(model_sw, "Age + hinge"))
-
-# After slope
-print(deltaMethod(model_sw, "Age"))
-
-
-```
 ##### plot
 ```{r}
 
 output <- plot_final(breakpoint_sw, breakpoint_se_sw, 
-                     model_sw, 
+                     m_sw, 
                      wing_data_final,
                      plot_scale_g,
                      include_brood = TRUE,
@@ -2084,235 +2204,6 @@ plot_wl_final # CHANGE HERE
 
 ```
 
-### MODEL OUTPUT
-#### function fmt_term: F = xx.xx (Df, Df.res) (p-display)
-```{r}
-# Helper to format one term: F = xx.xx (Df, Df.res) (p-display)
-fmt_term <- function(F, Df, Df_res, p, digits_F = 1, digits_Df = 1, p_thresh = 0.001) {
-  if (anyNA(c(F, Df, Df_res, p))) return(NA_character_)
-  F_str   <- format(round(F, digits_F), nsmall = digits_F, trim = TRUE)
-  Df_str  <- format(Df, trim = TRUE)
-  Res_str <- format(round(Df_res, digits_Df), nsmall = digits_Df, trim = TRUE)
-  
-  p_str <- if (is.na(p)) {
-      "p = NA"
-    } else if (p < p_thresh) {
-      "p < 0.001"
-    } else {
-      paste0("p = ", format(round(p, 2), nsmall = 2))
-    }
-
-  sprintf("F<sub>%s, %s</sub> = %s, %s",  Df_str, Res_str, F_str, p_str)
-
-  }
-```
-
-```{r}
-library(knitr)
-
-labels <- c("scaled_weight", "wingspan", "wingarea")
-anova_tabs <- list(anova_sw, anova_wingspan, anova_wingarea) #anova dataframe
-lmer_mods <- list(m_sw, m_wingspan, m_wingarea)             # fitted lmer models
-
-#stop if the number of anova tabs != number of models. It should
-stopifnot(length(labels) == length(anova_tabs), length(anova_tabs) == length(lmer_mods))
-
-#storage for all rows
-out_all <- list()
-
-#hypothesis test output
-hypothesis_tests <- list()
-
-
-for (i in seq_along(models)){
-  
-  tab <- anova_tabs[[i]] # the ANOVA data.frame for term extraction
-  mod <- lmer_mods[[i]] # the fitted model for summary metrics
-
-  
-# --- helper to extract a term safely from the current model ---
-  get_term <- function(term, what) {
-    # if the term is not present, return NA
-    if (!term %in% rownames(tab)) return(NA_real_)
-    val <- tab[term, ][[what]]
-    if (is.null(val)) return(NA_real_)
-    val
-  }
-
-  # pull values for each term from *this* model
-  ageF      <- get_term("Age",   "F")
-  ageDf     <- get_term("Age",   "Df")
-  ageDf.res <- get_term("Age",   "Df.res")
-  ageP      <- get_term("Age",   "p_FDR")
-
-  SexF      <- get_term("Sex",   "F")
-  SexDf     <- get_term("Sex",   "Df")
-  SexDf.res <- get_term("Sex",   "Df.res")
-  SexP      <- get_term("Sex",   "p_FDR")
-
-  hingeF      <- get_term("hinge", "F")
-  hingeDf     <- get_term("hinge", "Df")
-  hingeDf.res <- get_term("hinge", "Df.res")
-  hingeP      <- get_term("hinge", "p_FDR")
-  
-  # Brood is optional — if missing, all will be NA
-  BroodF      <- get_term("Brood",   "F")
-  BroodDf     <- get_term("Brood",   "Df")
-  BroodDf.res <- get_term("Brood",   "Df.res")
-  BroodP      <- get_term("Brood",   "p_FDR")
-  
-  #Optional interaction
-  AgeSexF      <- get_term("Age:Sex",   "F")
-  AgeSexDf     <- get_term("Age:Sex",   "Df")
-  AgeSexDf.res <- get_term("Age:Sex",   "Df.res")
-  AgeSexP      <- get_term("Age:Sex",   "p_FDR")
-  
-  # Build the single-row data frame in your requested format ---
-  out_row <- data.frame(
-    Age   = fmt_term(ageF,   ageDf,   ageDf.res,   ageP),
-    Sex   = fmt_term(SexF,   SexDf,   SexDf.res,   SexP),
-    Hinge = fmt_term(hingeF, hingeDf, hingeDf.res,  hingeP),# uses the parenthesis style
-    Brood = fmt_term(BroodF, BroodDf, BroodDf.res, BroodP),
-    AgeSex = fmt_term(AgeSexF, AgeSexDf, AgeSexDf.res, AgeSexP) # uses "p = xx" style
-    
-    )
-  
-  # model summary variables
-  
-  #vc <- VarCorr(model)
-  sigma_fixed <- sigma(mod)
-  sigma_Bird <- as.data.frame(VarCorr(mod))$sdcor[1]
-  ICC <- icc(mod)$ICC_adjusted
-  N_Bird <- ngrps(mod)
-  Observations <- stats::nobs(mod)
-  R2_marginal <- performance::r2(mod)$R2_marginal
-  R2_conditional <- performance::r2(mod)$R2_conditional
-
-  summary_cols <- data.frame(
-    sigma_fixed   = round(sigma_fixed, 2),
-    sigma_Bird    = round(sigma_Bird, 2),
-    ICC           = round(ICC, 2),
-    N_Bird        = N_Bird,
-    Observations  = Observations,
-    `Marginal R2 / Conditional R2` = paste0(round(R2_marginal,2), " / ", round(R2_conditional,2)),
-    check.names = FALSE, 
-    row.names = NULL
-  )
-
-  
-  # Add the Variables column as the first column
-  out_row <- cbind(Variables = labels[i], out_row, summary_cols)
-  
-  out_all[[i]] <- out_row
-}
-
-# Combine rows from all models into one data frame
-out_all <- do.call(rbind, out_all)
-
-kable(out_all, escape = FALSE)
-
-```
-### TEST OUTPUT
-```{r}
-
-library(knitr)
-
-labels <- c("scaled_weight", "wingspan", "wingarea")
-
-lmer_mods <- list(m_sw, m_wingspan, m_wingarea)             # fitted lmer models
-
-out_all <- vector("list", length(lmer_mods))
-
-
-for (i in seq_along(lmer_mods)){
-  
-  #tab <- anova_tabs[[i]] # the ANOVA data.frame for term extraction
-  mod <- lmer_mods[[i]] # the fitted model for summary metrics
-
-  #before slope = 0?
-  before_slope <- linearHypothesis(mod, "Age+hinge = 0", test = "F") %>% as.data.frame()# Is the slope before the breakpoint flat? -> no
-  
-  #after slope = 0?
-  after_slope <- linearHypothesis(mod, "Age = 0", test = "F") %>% as.data.frame() # Is the slope after the breakpoint flat? -> no
-  
-  #same slope?
-  same_slope <- linearHypothesis(mod, "Age = Age+hinge", test = "F") %>% as.data.frame()#Is the slope before and after the same? -> n
-  
-  #before breakpoint slope estimate
-  before_slope_estimate <- deltaMethod(mod, "Age + hinge") %>% as.data.frame()
-  
-  #after breakpoint slope estimate
-  after_slope_estimate <- deltaMethod(mod, "Age") %>% as.data.frame()
-  
-  before_slope_mean <-  before_slope_estimate$Estimate 
-  before_slope_se <-  before_slope_estimate$SE
-  before_slope_lower <- before_slope_estimate$`2.5 %`
-  before_slope_upper <- before_slope_estimate$`97.5 %`
-  
-  before_slope_F <- before_slope$F[2]
-  before_slope_Df <- before_slope$Df[2]
-  before_slope_ResDf <- before_slope$Res.Df[2]
-  before_slope_P <- before_slope$`Pr(>F)`[2]
-  
-  after_slope_mean <-  after_slope_estimate$Estimate 
-  after_slope_se <-  after_slope_estimate$SE
-  after_slope_lower <- after_slope_estimate$`2.5 %`
-  after_slope_upper <- after_slope_estimate$`97.5 %`
-  
-  after_slope_F <- after_slope$F[2]
-  after_slope_Df <- after_slope$Df[2]
-  after_slope_ResDf <- after_slope$Res.Df[2]
-  after_slope_P <- after_slope$`Pr(>F)`[2]
-  
-  same_slope_F <- same_slope$F[2]
-  same_slope_Df <- same_slope$Df[2]
-  same_slope_ResDf <- same_slope$Res.Df[2]
-  same_slope_P <- same_slope$`Pr(>F)`[2]
-  
-  
-  before_string <- sprintf(
-    "%.2f ± %.2f [%.2f, %.2f]",
-    before_slope_mean,
-    before_slope_se,
-    before_slope_lower,
-    before_slope_upper)
-  
-  after_string <- sprintf(
-    "%.2f ± %.2f [%.2f, %.2f]",
-    after_slope_mean,
-    after_slope_se,
-    after_slope_lower,
-    after_slope_upper)
-  
-  
-  # test summary variables
-
-  test_cols <- data.frame(
-    "slope before Mean ± SE [CI]" = before_string,
-    "slope before = 0?" = fmt_term(before_slope_F, before_slope_Df, before_slope_ResDf, before_slope_P),
-    "slope after Mean ± SE [CI]" = after_string,
-    "slope after = 0?" = fmt_term(after_slope_F, after_slope_Df, after_slope_ResDf, after_slope_P),
-    "slope before = after?" = fmt_term(same_slope_F, same_slope_Df, same_slope_ResDf, same_slope_P),
-    check.names = FALSE, 
-    row.names = NULL
-  )
-
-  
-  # Add the Variables column as the first column
-  out_row <- cbind(Variables = labels[i], test_cols)
-  
-  out_all[[i]] <- out_row
-}
-
-# Combine rows from all models into one data frame
-out_all_test <- do.call(rbind, out_all)
-
-kable(out_all_test, escape = FALSE)
-
-
-
-```
-
 ### LEG
 
 
@@ -2459,16 +2350,89 @@ print(deltaMethod(m_Fy, "Age"))
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_Fy, breakpoint_se_Fy, 
+
+
+output <- plot_final2(breakpoint_Fy, breakpoint_se_Fy, 
                      m_Fy, 
                      force_clean,
                      plot_age_Fy_bw,
                      include_brood = FALSE,
                      brood_level = "Box5",
                      sex = "M"
-                     )
+                     ) 
+
+
 plot_Fy_final <- output[1]
 plot_Fy_final
+
+```
+#### max Fz / bw (vertical force, Fx in data)
+##### breakpoint detection
+```{r}
+out <- detect_breakpoint(Fx_maxFtot_bw, force_clean)
+print(out)
+breakpoint_Fz <- round(out$estimates["breakpoint"], 1)
+breakpoint_se_Fz <- round(out$estimates["breakpoint_se"], 1)
+```
+##### aic comparison
+```{r}
+
+model_results <- compare_models_pmax(Fx_maxFtot_bw, breakpoint_Fz, force_clean)
+
+# shows the results of model comparison
+model_results[1:3]
+
+# saves the model to test 
+m_Fz <- model_results[[4]]$m10
+m_Fz
+
+
+```
+
+##### model assumption check
+```{r}
+check_collinearity(m_Fz)
+  
+# Computes the default residuals (raw conditional)
+raw_cond_model <- redres::compute_redres(m_Fz)
+  
+hist(raw_cond_model, main = "Norality of residuals") #normality in histogram
+plot_redres(m_Fz) #heteroskedasticity
+plot_resqq(m_Fz) #residual QQ
+plot_ranef(m_Fz)
+```
+##### test
+```{r}
+
+tab_model(m_Fz)
+anova_Fz <- Anova(m_Fz, type =3, test.statistic = "F") %>% as.data.frame() %>%
+  mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
+
+anova_Fz
+
+linearHypothesis(m_Fz, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(m_Fz, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+linearHypothesis(m_Fz, "Age = Age+hinge", test = "F")
+
+#before slope
+print(deltaMethod(m_Fz, "Age + hinge"))
+#after slope
+print(deltaMethod(m_Fz, "Age"))
+
+```
+##### plot
+```{r}
+
+output <- plot_final(breakpoint_Fz, breakpoint_se_Fz, 
+                     m_Fz, 
+                     force_clean,
+                     plot_age_Fz_bw,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "F"
+                     )
+plot_Fz_final <- output[1]
+plot_Fz_final
 
 ```
 #### max Ftot /bw - 37.1
@@ -2604,7 +2568,7 @@ print(deltaMethod(model, "Age"))
 
 output_M <- plot_final(breakpoint_angle, breakpoint_se_angle, 
                      m_angle, 
-                     force_data,
+                     force_clean,
                      plot_age_angle,
                      include_brood = TRUE,
                      brood_level = "Box5",
@@ -2612,7 +2576,7 @@ output_M <- plot_final(breakpoint_angle, breakpoint_se_angle,
                      )
 output_F <- plot_final(breakpoint_angle, breakpoint_se_angle, 
                      m_angle, 
-                     force_data,
+                     force_clean,
                      plot_age_angle,
                      include_brood = TRUE,
                      brood_level = "Box5",
@@ -2766,7 +2730,7 @@ print(deltaMethod(model, "Age"))
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_impulse, breakpoint_se_impulse, 
+output <- plot_final2(breakpoint_impulse, breakpoint_se_impulse, 
                      m_impulse, 
                      force_clean,
                      plot_age_impulse,
@@ -3707,7 +3671,7 @@ plot_accz_final # CHANGE HERE
 ##### breakpoint duration
 ```{r}
 
-m_lin <- lm(mean_acc_res ~ Age*Sex + Brood, data = flights_speed) #CHANGE HERE
+m_lin <- lm(mean_acc_tan ~ Age*Sex + Brood, data = flights_speed) #CHANGE HERE
 m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
 summary(m_seg)
 plot(m_seg)  # quick diagnostic plot
@@ -3725,7 +3689,7 @@ breakpoint_se_tacc
 ##### aic comparison
 ```{r}
 
-model_results <- compare_models_pmin(mean_acc_res, breakpoint_tacc, flights_speed) #CHANGE
+model_results <- compare_models_pmin(mean_acc_tan, breakpoint_tacc, flights_speed) #CHANGE
 
 # shows the results of model comparison
 model_results[1:3]
@@ -3778,7 +3742,7 @@ print(deltaMethod(model, "Age"))
 output <- plot_final(breakpoint_tacc, breakpoint_se_tacc, #CHANGE HERE
                      m_tacc, # CHANGE HERE
                      flights_speed, # CHANGE HERE
-                     plot_accres_mean, # CHANGE HERE
+                     plot_tacc_mean, # CHANGE HERE
                      include_brood = FALSE,
                      brood_level = "Box5",
                      sex = "M"
@@ -4138,7 +4102,7 @@ print(deltaMethod(model, "Age"))
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
+output <- plot_final2(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
                      m_centri, # CHANGE HERE
                      flights_speed, # CHANGE HERE
                      plot_ctracc_mean, # CHANGE HERE
@@ -4432,9 +4396,57 @@ fmt_term <- function(F, Df, Df_res, p, digits_F = 1, digits_Df = 1, p_thresh = 0
 ```{r}
 library(knitr)
 
-labels <- c("scaled_weight", "wingspan", "wingarea", "Fx/bw (Fz in data)", "Fy/bw", "Ftot/bw", "angle", "impulse", "left impulse", "right impulse", "duration", "left_duration", "right_duration")
-anova_tabs <- list(anova_sw, anova_wingspan, anova_wingarea, anova_Fx, anova_Fy, anova_Ftot, anova_angle, anova_impulse, anova_left_impulse, anova_right_impulse, anova_duration, anova_left_duration, anova_right_duration) #anova dataframe
-lmer_mods <- list(m_sw, m_wingspan, m_wingarea, m_Fx, m_Fy, m_Ftot, m_angle, m_impulse, m_left_impulse, m_right_impulse, m_duration, m_left_duration, m_right_duration)             # fitted lmer models
+labels <- c(
+  # morphology -------- 4 
+  "scaled_weight", "wingspan", "wingarea", "wing loading",
+  #leg force ---------- 12
+  "Fx/bw (Fz in data)", "Fy/bw", "Fz/bw (Fx in dat)", "Ftot/bw", 
+  "angle", "impulse", "left impulse", "right impulse", "impulse ratio", "duration", "left_duration", "right_duration",
+  #trajectory --------- 8 
+  "vx", "vy", "vz", "ax", "ay", "az", "|v|","atan", 
+  #tortuosity --------- 2
+  "turn rate", "centripetal acceleration", 
+  #wings ---------------3 ---------------> 29 variables!
+  "wingbeat frequency", "downstroke head displacement (mm)", "upstroke head displacement (mm)")
+
+
+# anova dataframe
+anova_tabs <- list(
+  # morphology --------- 4
+  anova_sw, anova_wingspan, anova_wingarea, anova_wl, 
+  
+  # leg force ---------- 12
+  anova_Fx, anova_Fy, anova_Fz, anova_Ftot, anova_angle, anova_impulse, anova_left_impulse, anova_right_impulse,
+  anova_impulse_ratio, anova_duration, anova_left_duration, anova_right_duration,
+  
+  # trajectory --------- 8 
+  anova_vx, anova_vy, anova_vz, anova_accx, anova_accy, anova_accz, anova_vres, anova_tacc,
+  
+  # tortuosity --------- 2 -----------------> 29 variables 
+  anova_tr, anova_centri,
+  
+  # wings -------------- 3
+  anova_wb, anova_downstroke, anova_upstroke
+  )
+
+# lmer mods
+lmer_mods <- list(
+  # morphology --------- 4 
+  m_sw, m_wingspan, m_wingarea, m_wl,
+  
+  # leg force ---------- 12
+  m_Fx, m_Fy, m_Fz, m_Ftot, m_angle, m_impulse, m_left_impulse, m_right_impulse, m_impulse_ratio, 
+  m_duration, m_left_duration, m_right_duration,
+  
+  # trajectory --------- 8
+  m_vx, m_vy, m_vz, m_accx, m_accy, m_accz, m_vres, m_tacc,
+  
+  # tortuosity --------- 2
+  m_tr, m_centri, 
+  
+  # wings -------------- 3
+  m_wb, m_downstroke, m_upstroke
+  )          
 
 #stop if the number of anova tabs != number of models. It should
 stopifnot(length(labels) == length(anova_tabs), length(anova_tabs) == length(lmer_mods))
@@ -4548,9 +4560,38 @@ kable(out_all, escape = FALSE)
 
 library(knitr)
 
-labels <- c("scaled_weight", "wingspan", "wingarea", "Fx/bw (Fz in data)", "Fy/bw", "Ftot/bw", "angle", "impulse", "left impulse", "right impulse", "duration", "left_duration", "right_duration")
+labels <- c(
+  # morphology -------- 4 
+  "scaled_weight", "wingspan", "wingarea", "wing loading",
+  #leg force ---------- 12
+  "Fx/bw (Fz in data)", "Fy/bw", "Fz/bw (Fx in dat)", "Ftot/bw", 
+  "angle", "impulse", "left impulse", "right impulse", "impulse ratio", "duration", "left_duration", "right_duration",
+  #trajectory --------- 8 
+  "vx", "vy", "vz", "ax", "ay", "az", "|v|","atan", 
+  #tortuosity --------- 2
+  "turn rate", "centripetal acceleration", 
+  #wings ---------------3 ---------------> 29 variables!
+  "wingbeat frequency", "downstroke head displacement (mm)", "upstroke head displacement (mm)")
 
-lmer_mods <- list(m_sw, m_wingspan, m_wingarea, m_Fx, m_Fy, m_Ftot, m_angle, m_impulse, m_left_impulse, m_right_impulse, m_duration, m_left_duration, m_right_duration) 
+
+# lmer mods
+lmer_mods <- list(
+  # morphology --------- 4 
+  m_sw, m_wingspan, m_wingarea, m_wl,
+  
+  # leg force ---------- 12
+  m_Fx, m_Fy, m_Fz, m_Ftot, m_angle, m_impulse, m_left_impulse, m_right_impulse, m_impulse_ratio, 
+  m_duration, m_left_duration, m_right_duration,
+  
+  # trajectory --------- 8
+  m_vx, m_vy, m_vz, m_accx, m_accy, m_accz, m_vres, m_tacc,
+  
+  # tortuosity --------- 2
+  m_tr, m_centri, 
+  
+  # wings -------------- 3
+  m_wb, m_downstroke, m_upstroke
+  )          
 
 out_all <- vector("list", length(lmer_mods))
 
@@ -4640,3 +4681,65 @@ out_all_test <- do.call(rbind, out_all)
 
 kable(out_all_test, escape = FALSE)
 ```
+### GRAPH OUTPUT
+#### morphology
+```{r}
+library(patchwork)
+morphology_plots <- (plot_scale_g_final$plot | plot_wl_final$plot ) /
+              (plot_wingarea_final$plot | plot_wingspan_final$plot) 
+
+morphology_plots
+```
+#### leg force 
+```{r}
+leg_force_plots <- (plot_Fy_final$plot | plot_Ftot_final$plot) / (plot_Fx_final$plot | plot_Fz_final$plot | plot_angle_M$plot)
+leg_force_plots
+```
+
+#### impulse and duration
+```{r}
+# impulse and duration
+
+impulse_plots <- (plot_impulse_final$plot | plot_duration_final$plot |plot_left_duration_final$plot ) /( plot_right_duration_final$plot |plot_left_impulse_final$plot | plot_right_impulse_final$plot)
+
+impulse_plots
+```
+
+#### trajectory
+```{r}
+
+trajectory_plots <- (plot_vx_final$plot | plot_vy_final$plot | plot_vz_final$plot ) /
+                              (plot_vres_final$plot | plot_tacc_final) /
+                (plot_accx_final$plot | plot_accy_final$plot | plot_accz_final$plot)
+
+
+trajectory_plots
+```
+
+#### tortuosity & wings
+```{r}
+
+wavy_plots <- (plot_tr_final$plot | plot_centri_final$plot )/( plot_wb_final$plot | plot_downstroke_final$plot | plot_upstroke_final$plot)
+
+wavy_plots
+
+```
+
+
+
+### DEEP DIVE
+```{r}
+
+flights_wb_na <- flights_wing %>% filter(is.na(wingbeat_frequency))
+flights_wb_na
+
+flights_upstroke_na <- flights_wing %>% filter(is.na(upstroke_amplitude_m))
+flights_upstroke_na
+
+flights_downstroke_na <- flights_wing %>% filter(is.na(downstroke_amplitude_m))
+flights_downstroke_na
+
+wings_nas <- rbind(flights_wb_na, flights_upstroke_na, flights_downstroke_na) %>% distinct()
+wings_nas
+```
+
