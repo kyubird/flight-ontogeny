@@ -1119,7 +1119,7 @@ def get_flight_performance(flights):
     flight_outcome = pd.DataFrame(columns=['FlightID','Bird', 'Age', 'Takeoff', 'mean_vx', 'mean_vy', 'mean_vz', 
                                           'max_vx', 'max_vy', 'max_vz', 'mean_acc_x', 'mean_acc_y', 'mean_acc_z',
                                           'max_acc_x', 'max_acc_y', 'max_acc_z',
-                                          'mean_v_res', 'mean_acc_res', 'max_v_res', 'max_acc_res',
+                                          'mean_v_res', 'mean_acc_tan', 'max_v_res', 'max_acc_tan',
                                           'mean_turn_rate', 'mean_centri_acc', 'max_turn_rate', 'max_centri_acc'])
 
     # Group the dataframe by 'FlightID'
@@ -1153,10 +1153,10 @@ def get_flight_performance(flights):
         max_acc_z = flight['inst_acc_Z'].max()
 
         mean_v_res = flight['inst_V_res'].mean()
-        mean_acc_res = flight['inst_acc_res'].mean()
+        mean_acc_tan = flight['inst_acc_tan'].mean()
 
         max_v_res = flight['inst_V_res'].max()
-        max_acc_res = flight['inst_acc_res'].max()
+        max_acc_tan = flight['inst_acc_tan'].max()
 
         max_acc_mag = flight['inst_acc_mag'].max()
         mean_acc_mag = flight['inst_acc_mag'].mean()
@@ -1191,11 +1191,11 @@ def get_flight_performance(flights):
             'max_acc_z': max_acc_z,
 
             'mean_v_res': mean_v_res, 
-            'mean_acc_res': mean_acc_res, 
+            'mean_acc_tan': mean_acc_tan, 
             'mean_acc_mag': mean_acc_mag,
 
             'max_v_res': max_v_res, 
-            'max_acc_res': max_acc_res,
+            'max_acc_tan': max_acc_tan,
             'max_acc_mag': max_acc_mag,
 
             'mean_turn_rate': mean_turn_rate, 
@@ -1272,10 +1272,10 @@ def calculate_differences(copy):
 
     
     # Calculating instantaneous acceleration
-    copy['inst_acc_res'] = copy['inst_V_res'].diff() / copy['diff_Time']
+    copy['inst_acc_tan'] = copy['inst_V_res'].diff() / copy['diff_Time']
     copy['inst_acc_X'] = copy['inst_V_X'].diff() / copy['diff_Time']
     copy['inst_acc_Y'] = copy['inst_V_Y'].diff() / copy['diff_Time']
-    copy['inst_acc_Z'] = copy['inst_V_Y'].diff() / copy['diff_Time']
+    copy['inst_acc_Z'] = copy['inst_V_Z'].diff() / copy['diff_Time']
     copy['inst_acc_mag'] = np.sqrt(copy['inst_acc_X']**2 + copy['inst_acc_Y']**2 + copy['inst_acc_Z']**2)
 
     # Cumulative metrics usually used for plots

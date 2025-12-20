@@ -275,7 +275,7 @@ final_plot2
 
 
 ```
-#### function plot_age_var 
+### function plot_age_var 
 ```{r}
 plot_age_var <- function(variable, df, title) {
   
@@ -300,7 +300,7 @@ plot_age_var <- function(variable, df, title) {
     )
   
   # Plot
-  plot_age_performance<- ggplot(df, aes(x = Age, y = {{variable}}, color = Bird)) +
+  plot <- ggplot(df, aes(x = Age, y = {{variable}}, color = Bird)) +
     geom_point(position = position_jitter(width = 1), alpha = 0.3) +
     geom_errorbar(
       data = summary_df,
@@ -338,112 +338,431 @@ plot_age_var <- function(variable, df, title) {
     theme(legend.position = "none")+
     theme_minimal()
   
-  return(plot_age_performance)
+  return(plot)
 }
+```
+### function plot_del_var
+```{r}
+
+
+plot_del_var <- function(variable, df, title, drop_no_baseline = TRUE) {
+  # Requires: dplyr, ggplot2
+  # variable: unquoted column name (tidy-eval), e.g., BW or Mass
+  # df: data.frame/tibble with columns Bird, Age, and the variable
+  # title: y-axis title base text
+  # baseline_age: age used as the zero point (default 20)
+  # drop_no_baseline: if TRUE, drop birds without observations at baseline_age
+  
+  library(dplyr)
+  library(ggplot2)
+  
+  # Get per-bird baseline at the specified age
+  baseline_df <- df %>%
+    dplyr::filter(Age == 20) %>%
+    dplyr::group_by(Bird) %>%
+    dplyr::summarise(
+      baseline = mean({{ variable }}, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Join baseline back and compute delta for every row
+  df_delta <- df %>%
+    dplyr::left_join(baseline_df, by = "Bird") %>%
+    dplyr::mutate(delta = {{ variable }} - baseline)
+  
+  # Optionally drop birds without a baseline
+  if (isTRUE(drop_no_baseline)) {
+    df_delta <- df_delta %>% dplyr::filter(!is.na(baseline))
+  }
+  
+  # Summary by individual (on delta)
+  summary_df <- df_delta %>%
+    dplyr::group_by(Bird, Age) %>%
+    dplyr::summarise(
+      mean = mean(delta, na.rm = TRUE),
+      sd   = sd(delta,   na.rm = TRUE),
+      n    = dplyr::n(),
+      .groups = "drop"
+    )
+  
+  # Summary by age (overall trend on delta)
+  trend_df <- df_delta %>%
+    dplyr::group_by(Age) %>%
+    dplyr::summarise(
+      mean = mean(delta, na.rm = TRUE),
+      sd   = sd(delta,   na.rm = TRUE),
+      n    = dplyr::n(),
+      .groups = "drop"
+    )
+  
+  # Plot (all on delta scale)
+  p <- ggplot(df_delta, aes(x = Age, y = delta, color = Bird)) +
+    # raw points (delta)
+    geom_point(position = position_jitter(width = 1), alpha = 0.3) +
+    
+    # within-bird mean ± sd
+    geom_errorbar(
+      data = summary_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd, color = Bird),
+      width = 2, size = 0.8, alpha = 0.3, inherit.aes = FALSE
+    ) +
+    geom_point(
+      data = summary_df,
+      aes(y = mean, x = Age, color = Bird),
+      size = 2, shape = 18, alpha = 0.9, inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = summary_df,
+      aes(x = Age, y = mean, color = Bird, group = Bird),
+      size = 0.7, alpha = 0.8, inherit.aes = FALSE
+    ) +
+    
+    # overall trend ribbon (mean ± sd on delta)
+    geom_ribbon(
+      data = trend_df,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd),
+      fill = "grey70", alpha = 0.5, inherit.aes = FALSE
+    ) +
+    geom_line(
+      data = trend_df,
+      aes(x = Age, y = mean),
+      color = "grey50", alpha = 0.8, size = 1.2, inherit.aes = FALSE
+    ) +
+    
+    # zero reference line (baseline)
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+    
+    scale_x_continuous(breaks = sort(unique(df$Age))) +
+    labs(
+      x = "Age",
+      y = title,
+      title = ""
+    ) +
+    guides(alpha = "none", color = "none") +
+    theme_minimal() +
+    theme(legend.position = "none")
+  
+  return(p)
+}
+
+
+
+
+```
+
+
+
+### OUTLIERS detection
+#### Force
+```{r}
+test_Ftot <- rosnerTest(force_data$max_Ftot_bw, k= 10)
+test_Ftot$all.stats #no outliers
+
+test_Fx <- rosnerTest(force_data$Fx_maxFtot_bw, k = 10)
+test_Fx$all.stats #no outliers
+
+test_Fy <- rosnerTest(force_data$Fy_maxFtot_bw, k = 10)
+test_Fy$all.stats
+
+test_Fz <- rosnerTest(force_data$Fz_maxFtot_bw, k = 10)
+test_Fz$all.stats
+```
+
+```{r}
+test_impulse <- rosnerTest(force_data$impulse, k = 10)
+test_impulse$all.stats
+
+test_duration <- rosnerTest(force_data$duration, k = 20)
+test_duration$all.stats
+
+test_angle <- rosnerTest(force_data$angle, k = 10)
+test_angle$all.stats
+```
+
+```{r}
+
+test_impulse_ratio <- rosnerTest(force_data$impulse, k = 10)
+test_impulse_ratio$all.stats
+
+test_left_impulse <- rosnerTest(force_data$left_impulse, k= 10)
+test_left_impulse$all.stats
+
+test_right_impulse <- rosnerTest(force_data$right_impulse, k = 10)
+test_right_impulse$all.stats
+
+test_left_duration <- rosnerTest(force_data$left_duration, k = 20)
+test_left_duration$all.stats
+
+test_right_duration <- rosnerTest(force_data$right_duration, k = 10)
+test_right_duration$all.stats
+
+```
+```{r}
+
+out_impulse <- test_impulse$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_duration <- test_duration$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_angle <- test_angle$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_impulse_ratio <- test_impulse_ratio$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_left_impulse <- test_left_impulse$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_left_duration <- test_left_duration$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_right_duration <- test_right_duration$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+outliers_force <-rbind(out_impulse, out_duration, out_angle, out_impulse_ratio, out_left_impulse, out_left_duration, out_right_duration)
+
+dim(outliers_force) 
+ #41 outliers
+
+```
+```{r}
+dim(force_data) #988
+
+force_clean <- force_data[-c(outliers_force$Obs.Num),]
+
+dim(force_clean) #961
+```
+
+#### Trajectory
+```{r}
+test_vx <- rosnerTest(flights$mean_vx, k= 10)
+test_vx$all.stats #no outliers
+
+test_vy <- rosnerTest(flights$mean_vy, k = 10)
+test_vy$all.stats #no outliers
+
+test_vz <- rosnerTest(flights$mean_vz, k = 10)
+test_vz$all.stats
+
+test_vres <- rosnerTest(flights$mean_v_res, k = 10)
+test_vres$all.stats
+```
+
+```{r}
+test_accx <- rosnerTest(flights$mean_acc_x, k = 10)
+test_accx$all.stats
+
+test_accy <- rosnerTest(flights$mean_acc_y, k = 10)
+test_accy$all.stats
+
+test_accz <- rosnerTest(flights$mean_acc_z, k = 10)
+test_accz$all.stats
+
+test_accres <- rosnerTest(flights$mean_acc_tan, k = 10) #tangential acceleration
+test_accres$all.stats
+```
+#### tortuosity & wingbeat
+```{r}
+test_tr <- rosnerTest(flights$mean_turn_rate, k = 20)
+test_tr$all.stats
+
+test_centri <- rosnerTest(flights$mean_centri_acc, k = 10)
+test_centri$all.stats
+
+test_wingbeat <- rosnerTest(flights$wingbeat_frequency, k = 10)
+test_wingbeat$all.stats
+
+test_upstroke <- rosnerTest(flights$upstroke_amplitude_m, k = 30)
+test_upstroke$all.stats
+
+test_downstroke <- rosnerTest(flights$downstroke_amplitude_m, k = 30)
+test_downstroke$all.stats
+```
+```{r}
+
+out_vres <- test_vres$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_accx <- test_accx$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_accy <- test_accy$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_accz <- test_accz$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_accres <- test_accres$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_tr <- test_tr$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+out_centri <- test_centri$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+out_wingbeat <- test_wingbeat$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+out_upstroke <- test_upstroke$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+out_downstroke <- test_downstroke$all.stats %>%
+  filter(Outlier == "TRUE") %>%
+  dplyr::select(Obs.Num)
+
+
+outliers_flights_speed <-rbind(out_vres, out_accx, out_accy, out_accz, out_accres) %>% distinct()
+
+outliers_flights_tort <- rbind(out_tr, out_centri) %>% distinct()
+
+outliers_flights_wing <- rbind(out_wingbeat, out_upstroke, out_downstroke) %>% distinct()
+
+dim(outliers_flights_speed) # 14
+dim(outliers_flights_tort) # 16
+dim(outliers_flights_wing) # 43
+```
+```{r}
+dim(flights) #937
+#speed and acceleration variables
+
+flights_speed  <- flights[-c(outliers_flights_speed$Obs.Num),]
+
+# tortuosity variables 
+
+flights_tort <- flights[-c(outliers_flights_tort$Obs.Num),]
+
+# wingbeat and head displacement variables
+
+
+flights_wing <- flights[-c(outliers_flights_wing$Obs.Num),]
+
+dim(flights_speed) #918
+dim(flights_tort) #921
+dim(flights_wing) #901
+
 ```
 ## A. Morphology
 ### a. wing area
-
+#### raw
 ```{r wing area per bird}
-
-# Summarize mean and standard deviation per Bird & Age
-summary_df <- wing_data_final %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_wa = mean(wingarea),
-    sd_wa = sd(wingarea),
-    .groups = "drop"
-  )
-
-trend_df <- wing_data_final %>%
-  group_by(Age) %>%
-  summarise(
-    mean_wa = mean(wingarea, na.rm = TRUE),
-    sd_wa   = sd(wingarea, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# Plot: trials + mean + SD
-plot_wingarea <- ggplot(wing_data_final, aes(x = Age, y = wingarea, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_wa - sd_wa, ymax = mean_wa + sd_wa, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(x = Age, y = mean_wa,  color = Bird, alpha = 0.9),
-    size = 3, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_wa, color = Bird, group = Bird, alpha = 0.8),
-    linewidth = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_wa - sd_wa, ymax = mean_wa + sd_wa),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_wa),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(wing_data_sorted$Age)) +
-  labs(x = "Age", y = "Wing Area (m^2)", title = "") +
-  ylim(0.5, 1.0)+
-  guides(alpha = "none") +
-  theme_minimal() #+
-  #theme(legend.position = "none")
+plot_wingarea <- plot_age_var(wingarea, wing_data_final, expression(wing~area ~(m^2)))
 
 plot_wingarea
-
-
-
 ```
+#### delta
 ```{r}
-plot_wingarea <- plot_age_var(wingarea, wing_data_final, "wing area (N/m^2)")
-plot_wingarea
+plot_wingarea_delta <- plot_del_var(wingarea, wing_data_final, expression(Delta~wing~area ~(m^2)))
+
+plot_wingarea_delta
+
+
 ```
+
 
 
 ### b. calculated wingspan
+#### raw
 ```{r}
-plot_wingspan <- plot_age_var(wingspan, wing_data_final, "wingspan (mm)")
+plot_wingspan <- plot_age_var(wingspan, wing_data_final, expression(wingspan~(mm)))
 plot_wingspan
 ```
+#### delta
+```{r}
 
+plot_wingspan_delta <- plot_del_var(wingspan, wing_data_final, expression(Delta~wingspan~(mm)))
+plot_wingspan_delta
+
+```
 ### c. perching weight
 ```{r}
 plot_perch_g <- plot_age_var(bodyweight_g, force_data, "perching weight(g)")
+plot_perch_g
 ```
+```{r}
 
+plot_perch_g_delta <- plot_del_var(bodyweight_g, force_data, "perching weight(g)")
+plot_perch_g_delta
+
+
+```
 ### d. scale weight
+#### raw
 ```{r}
-plot_scale_g <- plot_age_var(scale_weight*101.97, wing_data_final, "scale weight (g)")
+plot_scale_g <- plot_age_var(scale_weight*101.97, wing_data_final, expression(scale~mass~(g)))
+
+plot_scale_g
+```
+#### delta
+```{r}
+
+plot_scale_g_delta <- plot_del_var(scale_weight*101.97, wing_data_final, expression(Delta~scale~mass~(g)))
+
+plot_scale_g_delta
+```
+```{r}
 ggarrange(plot_perch_g, plot_scale_g, nrow = 1, ncol = 2)
+
+```
+### e. wing loading 
+#### raw
+```{r}
+plot_wingloading <- plot_age_var(wing_loading, wing_data_final, expression(wing~loading~(N/m^2)))
+plot_wingloading
+```
+#### delta
+```{r}
+plot_wingloading_delta <- plot_del_var(wing_loading, wing_data_final, expression(Delta~wing~loading~(N/m^2)))
+plot_wingloading_delta
 ```
 
-### e. wing loading 
-```{r}
-plot_wingloading <- plot_age_var(wing_loading, wing_data_final, "wing loading (N/m^2)")
-```
 
 ### PLOTS - wingspan, wing area, scale weight, wing loading 
+#### raw
 ```{r}
 
-plots_morphology <- ggarrange(plot_wingspan, plot_wingarea, plot_scale_g, plot_wingloading, nrow = 2, ncol =2)
+plots_morphology <- ggarrange(plot_scale_g, plot_wingspan, plot_wingarea,  plot_wingloading, nrow = 2, ncol =2)
 
 plots_morphology
+
+```
+#### delta
+```{r}
+
+plots_morphology_delta <- ggarrange(plot_scale_g_delta,plot_wingspan_delta, plot_wingarea_delta, plot_wingloading_delta, nrow = 2, ncol =2)
+
+plots_morphology_delta
+
 
 ```
 ## B. Performance
@@ -966,7 +1285,7 @@ plot_age_duration
 
 ##### impulse ratio
 ```{r}
-plot_age_impulse_ratio <- plot_age_var(impulse_ratio, force_data, "impulse ratio ( left impulse / right impulse )")
+plot_age_impulse_ratio <- plot_age_var(impulse_ratio, force_clean, "impulse ratio")
 
 plot_age_impulse_ratio
 ```
@@ -1012,226 +1331,7 @@ plot_age_angle
 ```{r}
 ggarrange(plot_age_maxFtot, plot_age_Fx, plot_age_Fy, plot_age_maxF_bw, plot_age_Fx_bw, plot_age_Fy_bw, nrow = 2, ncol=3)
 ```
-### OUTLIERS detection
 
-```{r}
-test_Ftot <- rosnerTest(force_data$max_Ftot_bw, k= 10)
-test_Ftot$all.stats #no outliers
-
-test_Fx <- rosnerTest(force_data$Fx_maxFtot_bw, k = 10)
-test_Fx$all.stats #no outliers
-
-test_Fy <- rosnerTest(force_data$Fy_maxFtot_bw, k = 10)
-test_Fy$all.stats
-
-test_Fz <- rosnerTest(force_data$Fz_maxFtot_bw, k = 10)
-test_Fz$all.stats
-```
-
-```{r}
-test_impulse <- rosnerTest(force_data$impulse, k = 10)
-test_impulse$all.stats
-
-test_duration <- rosnerTest(force_data$duration, k = 20)
-test_duration$all.stats
-
-test_angle <- rosnerTest(force_data$angle, k = 10)
-test_angle$all.stats
-```
-
-```{r}
-
-test_impulse_ratio <- rosnerTest(force_data$impulse, k = 10)
-test_impulse_ratio$all.stats
-
-test_left_impulse <- rosnerTest(force_data$left_impulse, k= 10)
-test_left_impulse$all.stats
-
-test_right_impulse <- rosnerTest(force_data$right_impulse, k = 10)
-test_right_impulse$all.stats
-
-test_left_duration <- rosnerTest(force_data$left_duration, k = 20)
-test_left_duration$all.stats
-
-test_right_duration <- rosnerTest(force_data$right_duration, k = 10)
-test_right_duration$all.stats
-
-```
-```{r}
-
-out_impulse <- test_impulse$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_duration <- test_duration$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_angle <- test_angle$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_impulse_ratio <- test_impulse_ratio$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_left_impulse <- test_left_impulse$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_left_duration <- test_left_duration$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_right_duration <- test_right_duration$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-outliers_force <-rbind(out_impulse, out_duration, out_angle, out_impulse_ratio, out_left_impulse, out_left_duration, out_right_duration)
-
-dim(outliers_force) 
- #41 outliers
-
-```
-```{r}
-dim(force_data) #988
-
-force_clean <- force_data[-c(outliers_force$Obs.Num),]
-
-dim(force_clean) #961
-```
-
-### FLIGHT SPEED
-### OUTLIERS detection
-```{r}
-test_vx <- rosnerTest(flights$mean_vx, k= 10)
-test_vx$all.stats #no outliers
-
-test_vy <- rosnerTest(flights$mean_vy, k = 10)
-test_vy$all.stats #no outliers
-
-test_vz <- rosnerTest(flights$mean_vz, k = 10)
-test_vz$all.stats
-
-test_vres <- rosnerTest(flights$mean_v_res, k = 10)
-test_vres$all.stats
-```
-
-```{r}
-test_accx <- rosnerTest(flights$mean_acc_x, k = 10)
-test_accx$all.stats
-
-test_accy <- rosnerTest(flights$mean_acc_y, k = 10)
-test_accy$all.stats
-
-test_accz <- rosnerTest(flights$mean_acc_z, k = 10)
-test_accz$all.stats
-
-test_accres <- rosnerTest(flights$mean_acc_tan, k = 10) #tangential acceleration
-test_accres$all.stats
-```
-```{r}
-test_tr <- rosnerTest(flights$mean_turn_rate, k = 20)
-test_tr$all.stats
-
-test_centri <- rosnerTest(flights$mean_centri_acc, k = 10)
-test_centri$all.stats
-
-test_wingbeat <- rosnerTest(flights$wingbeat_frequency, k = 10)
-test_wingbeat$all.stats
-
-test_upstroke <- rosnerTest(flights$upstroke_amplitude_m, k = 30)
-test_upstroke$all.stats
-
-test_downstroke <- rosnerTest(flights$downstroke_amplitude_m, k = 30)
-test_downstroke$all.stats
-```
-```{r}
-
-out_vres <- test_vres$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_accx <- test_accx$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_accy <- test_accy$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_accz <- test_accz$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_accres <- test_accres$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_tr <- test_tr$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-out_centri <- test_centri$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-out_wingbeat <- test_wingbeat$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-out_upstroke <- test_upstroke$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-out_downstroke <- test_downstroke$all.stats %>%
-  filter(Outlier == "TRUE") %>%
-  dplyr::select(Obs.Num)
-
-
-outliers_flights_speed <-rbind(out_vres, out_accx, out_accy, out_accz, out_accres) %>% distinct()
-
-outliers_flights_tort <- rbind(out_tr, out_centri) %>% distinct()
-
-outliers_flights_wing <- rbind(out_wingbeat, out_upstroke, out_downstroke) %>% distinct()
-
-dim(outliers_flights_speed) # 14
-dim(outliers_flights_tort) # 16
-dim(outliers_flights_wing) # 43
-```
-```{r}
-dim(flights) #937
-#speed and acceleration variables
-
-flights_speed  <- flights[-c(outliers_flights_speed$Obs.Num),]
-
-# tortuosity variables 
-
-flights_tort <- flights[-c(outliers_flights_tort$Obs.Num),]
-
-# wingbeat and head displacement variables
-
-
-flights_wing <- flights[-c(outliers_flights_wing$Obs.Num),]
-
-dim(flights_speed) #937
-dim(flights_tort) #923
-dim(flights_wing) #894
-
-```
 #### a. turn rate
 ##### mean
 ```{r}
@@ -1364,9 +1464,17 @@ plot_accz_max
 ```
 ### WINGBEATS
 #### frequency
+##### raw
 ```{r}
 plot_wb_mean <- plot_age_var(wingbeat_frequency, flights_wing, "wingbeat frequency (Hz)")
 plot_wb_mean
+```
+##### delta
+```{r}
+
+plot_wb_delta <- plot_del_var(wingbeat_frequency, flights_wing, expression(Delta~wingbeat~frequency~(Hz)))
+plot_wb_delta
+
 ```
 #### upstroke
 ```{r}
@@ -1655,7 +1763,33 @@ check_assumptions <- function(model){
   invisible(NULL)
 }
 ```
+## function plot_breakpoint
+```{r}
 
+plot_breakpoint <- function(breakpoint, breakpoint_se, base_plot){
+  
+  yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
+  y_top <- max(yr)
+  
+  new_plot <- base_plot + 
+    ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
+    ggplot2::annotate(
+        "segment",
+        x = breakpoint - breakpoint_se,
+        xend = breakpoint + breakpoint_se,
+        y    = y_top,
+        yend = y_top,
+        color = "#E2AFDE",
+        linewidth = 3,
+        alpha = 0.7) +
+    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))
+  
+  return(new_plot)
+  
+}
+
+
+```
 ## function plot_final
 ```{r}
 
@@ -1808,7 +1942,7 @@ plot_final2 <- function(breakpoint, breakpoint_se,
 ```
 ## function plot_final3
 - for functions that don't show breakpoint SEs
-- the only difference is y_top <- max(yr)*0.96
+- the only difference is y_top <- max(yr)*0.90
 ```{r}
 
 plot_final3 <- function(breakpoint, breakpoint_se,
@@ -1855,7 +1989,7 @@ plot_final3 <- function(breakpoint, breakpoint_se,
 
   # 7) Compose plot
   yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
-  y_top <- max(yr)*0.97
+  y_top <- max(yr)*0.94
 
   p <- base_plot +
     
@@ -1892,6 +2026,14 @@ print(out)
 breakpoint_sw <- round(out$estimates["breakpoint"], 1)
 breakpoint_se_sw <- round(out$estimates["breakpoint_se"], 1)
 
+```
+```{r}
+plot_mass_raw <- plot_breakpoint(breakpoint_sw, breakpoint_se_sw, plot_scale_g)
+
+plot_mass_delta <- plot_breakpoint(breakpoint_sw, breakpoint_se_sw, plot_scale_g_delta)
+
+plot_mass_raw
+plot_mass_delta
 ```
 ##### aic comparison
 ```{r}
@@ -1971,6 +2113,16 @@ print(out)
 breakpoint_ws <- round(out$estimates["breakpoint"], 1)
 breakpoint_se_ws <- round(out$estimates["breakpoint_se"], 1)
 ```
+```{r}
+
+plot_wingspan_raw <- plot_breakpoint(breakpoint_ws, breakpoint_se_ws, plot_wingspan)
+
+plot_wingspan_delta <- plot_breakpoint(breakpoint_ws, breakpoint_se_ws, plot_wingspan_delta)
+
+plot_wingspan_raw
+plot_wingspan_delta
+
+```
 ##### aic comparison
 ```{r}
 
@@ -2047,6 +2199,17 @@ out <- detect_breakpoint(wingarea, wing_data_final)
 print(out)
 breakpoint_wa <- round(out$estimates["breakpoint"], 1)
 breakpoint_se_wa <- round(out$estimates["breakpoint_se"], 1)
+```
+```{r}
+
+plot_wingarea_raw <- plot_breakpoint(breakpoint_wa, breakpoint_se_wa, plot_wingarea)
+
+plot_wingarea_delta <- plot_breakpoint(breakpoint_wa, breakpoint_se_wa, plot_wingarea_delta)
+
+plot_wingarea_raw
+plot_wingarea_delta
+
+
 ```
 ##### aic comparison
 ```{r}
@@ -2137,6 +2300,16 @@ breakpoint_se_wl
 
 
 ```
+```{r}
+plot_wl_raw <- plot_breakpoint(breakpoint_wl, breakpoint_se_wl, plot_wingloading)
+
+plot_wl_delta <- plot_breakpoint(breakpoint_wl, breakpoint_se_wl, plot_wingloading_delta)
+
+plot_wl_raw
+plot_wl_delta
+
+
+```
 ##### aic comparison
 ```{r}
 
@@ -2203,7 +2376,16 @@ plot_wl_final # CHANGE HERE
 
 
 ```
+### Raw & Delta plots
+```{r}
+library(patchwork)
+morphology_plots <- (plot_mass_raw | plot_wingspan_raw)/ (plot_wingarea_raw | plot_wl_raw)
 
+morphology_delta_plots <- (plot_mass_delta | plot_wingspan_delta)/ (plot_wingarea_delta | plot_wl_delta)
+
+morphology_plots
+morphology_delta_plots
+```
 ### LEG
 
 
@@ -2730,7 +2912,7 @@ print(deltaMethod(model, "Age"))
 ##### plot
 ```{r}
 
-output <- plot_final2(breakpoint_impulse, breakpoint_se_impulse, 
+output <- plot_final3(breakpoint_impulse, breakpoint_se_impulse, 
                      m_impulse, 
                      force_clean,
                      plot_age_impulse,
@@ -2901,6 +3083,91 @@ output <- plot_final(breakpoint_right_impulse, breakpoint_se_right_impulse,
                      )
 plot_right_impulse_final <- output[1]
 plot_right_impulse_final
+
+
+```
+#### impulse ratio 
+##### breakpoint detection
+```{r}
+
+m_lin <- lm(impulse_ratio ~ Age*Sex + Brood, data = force_clean) #CHANGE HERE
+m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
+summary(m_seg)
+plot(m_seg)  # quick diagnostic plot
+
+# Extract estimated breakpoint and slopes
+breakpoint_impulse_ratio <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
+breakpoint_se_impulse_ratio <- m_seg$psi["psi1.Age", "St.Err"] # breakpoint se.
+
+
+breakpoint_impulse_ratio #32.9
+breakpoint_se_impulse_ratio
+
+
+```
+##### aic comparison
+```{r}
+
+model_results <- compare_models_pmin(impulse_ratio, breakpoint_impulse_ratio, force_clean) #CHANGE
+
+# shows the results of model comparison
+model_results[1:3]
+
+# saves the model to test 
+m_impulse_ratio <- model_results[[4]]$m10 # in theory could
+m_impulse_ratio
+
+```
+##### model assumptions
+```{r}
+
+model <- m_impulse_ratio
+check_collinearity(model)
+# Computes the default residuals (raw conditional)
+raw_cond_model <- redres::compute_redres(model)
+  
+hist(raw_cond_model, main = "Norality of residuals") #normality in histogram
+plot_redres(model) #heteroskedasticity
+plot_resqq(model) #residual QQ
+plot_ranef(model)
+
+
+
+```
+##### test
+```{r}
+
+model <- m_impulse_ratio
+
+tab_model(model)
+anova_impulse_ratio <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
+  mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
+
+anova_impulse_ratio # CHANGE THIS!!
+
+linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+linearHypothesis(model, "Age = Age+hinge", test = "F")
+
+#before slope
+print(deltaMethod(model, "Age + hinge"))
+#after slope
+print(deltaMethod(model, "Age"))
+
+```
+##### plot
+```{r}
+
+output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
+                     m_impulse_ratio, # CHANGE HERE
+                     force_clean, # CHANGE HERE
+                     plot_age_impulse_ratio, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box3",
+                     sex = "M"
+                     )
+plot_impulse_ratio_final <- output[1] #CHANGE HERE
+plot_impulse_ratio_final # CHANGE HERE
 
 
 ```
@@ -3913,7 +4180,7 @@ print(deltaMethod(model, "Age"))
 
 output <- plot_final(breakpoint_tr, breakpoint_se_tr, #CHANGE HERE
                      m_tr, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
+                     flights_tort, # CHANGE HERE
                      plot_tr_mean, # CHANGE HERE
                      include_brood = TRUE,
                      brood_level = "Box3",
@@ -3944,91 +4211,7 @@ plot_tr_final # CHANGE HERE
 
 
 
-#### impulse ratio - not significant!!
-##### breakpoint detection
-```{r}
 
-m_lin <- lm(impulse_ratio ~ Age*Sex + Brood, data = force_clean) #CHANGE HERE
-m_seg <- segmented(m_lin, seg.Z = ~ Age, psi = list(Age = 36))  # initial guess at 36
-summary(m_seg)
-plot(m_seg)  # quick diagnostic plot
-
-# Extract estimated breakpoint and slopes
-breakpoint_impulse_ratio <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significant, male grows quicker. 
-breakpoint_se_impulse_ratio <- m_seg$psi["psi1.Age", "St.Err"] # breakpoint se.
-
-
-breakpoint_impulse_ratio #32.9
-breakpoint_se_impulse_ratio
-
-
-```
-##### aic comparison
-```{r}
-
-model_results <- compare_models_pmin(impulse_ratio, breakpoint_impulse_ratio, force_clean) #CHANGE
-
-# shows the results of model comparison
-model_results[1:3]
-
-# saves the model to test 
-m_impulse_ratio <- model_results[[4]]$m10 # in theory could
-m_impulse_ratio
-
-```
-##### model assumptions
-```{r}
-
-model <- m_impulse_ratio
-check_collinearity(model)
-# Computes the default residuals (raw conditional)
-raw_cond_model <- redres::compute_redres(model)
-  
-hist(raw_cond_model, main = "Norality of residuals") #normality in histogram
-plot_redres(model) #heteroskedasticity
-plot_resqq(model) #residual QQ
-plot_ranef(model)
-
-
-
-```
-##### test
-```{r}
-
-model <- m_impulse_ratio
-
-tab_model(model)
-anova_impulse_ratio <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
-  mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
-
-anova_impulse_ratio # CHANGE THIS!!
-
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
-
-```
-##### plot
-```{r}
-
-output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
-                     m_impulse_ratio, # CHANGE HERE
-                     force_clean, # CHANGE HERE
-                     plot_age_impulse_ratio, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box3",
-                     sex = "M"
-                     )
-plot_impulse_ratio_final <- output[1] #CHANGE HERE
-plot_impulse_ratio_final # CHANGE HERE
-
-
-```
 
 #### mean centripetal acceleration
 ##### breakpoint duration
@@ -4129,7 +4312,7 @@ breakpoint_wb <- m_seg$psi["psi1.Age", "Est."] # breakpoint: 34.3. Age significa
 breakpoint_se_wb <- m_seg$psi["psi1.Age", "St.Err"] # breakpoint se.
 
 
-breakpoint_tr #32.9
+breakpoint_wb #32.9
 breakpoint_se_wb
 
 
@@ -4192,7 +4375,7 @@ output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
                      flights_wing, # CHANGE HERE
                      plot_wb_mean, # CHANGE HERE
                      include_brood = TRUE,
-                     brood_level = "WhitePinkR-BlueR",
+                     brood_level = "Box5",
                      sex = "M"
                      )
 plot_wb_final <- output[1] #CHANGE HERE
@@ -4700,7 +4883,9 @@ leg_force_plots
 ```{r}
 # impulse and duration
 
-impulse_plots <- (plot_impulse_final$plot | plot_duration_final$plot |plot_left_duration_final$plot ) /( plot_right_duration_final$plot |plot_left_impulse_final$plot | plot_right_impulse_final$plot)
+impulse_plots <- 
+  (plot_impulse_final$plot | plot_impulse_ratio_final$plot | plot_duration_final$plot ) / 
+  (plot_left_duration_final$plot | plot_right_duration_final$plot | plot_left_impulse_final$plot | plot_right_impulse_final$plot)                                           
 
 impulse_plots
 ```
@@ -4743,3 +4928,306 @@ wings_nas <- rbind(flights_wb_na, flights_upstroke_na, flights_downstroke_na) %>
 wings_nas
 ```
 
+### Breakpoint pairwise test
+```{r}
+
+
+# Welch pairwise tests from summary stats (means, SE/SD, n) for k variables
+# Provide either 'ses' (standard errors) or 'sds' (standard deviations).
+# If both provided, 'sds' is used and 'ses' ignored.
+welch_pairs_from_summary <- function(means, ns, ses = NULL, sds = NULL,
+                                     var_names = NULL, adjust = "BH",
+                                     conf_level = 0.95) {
+  stopifnot(is.numeric(means), is.numeric(ns))
+  k <- length(means)
+  if (length(ns) != k) stop("ns must have same length as means.")
+  if (is.null(sds) && is.null(ses)) stop("Provide either 'sds' or 'ses'.")
+  if (!is.null(sds)) {
+    if (length(sds) != k) stop("'sds' must have same length as means.")
+  } else {
+    if (length(ses) != k) stop("'ses' must have same length as means.")
+    sds <- ses * sqrt(ns)  # convert SE to SD
+  }
+  if (is.null(var_names)) var_names <- paste0("V", seq_len(k))
+  if (length(var_names) != k) stop("'var_names' must match length of means.")
+  
+  # helper for one Welch comparison
+  welch_two <- function(m1, s1, n1, m2, s2, n2, conf_level = 0.95) {
+    se_diff <- sqrt(s1^2/n1 + s2^2/n2)
+    tstat   <- (m1 - m2) / se_diff
+    df      <- (s1^2/n1 + s2^2/n2)^2 /
+               ((s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1))
+    p       <- 2 * pt(abs(tstat), df = df, lower.tail = FALSE)
+    alpha   <- 1 - conf_level
+    tcrit   <- qt(1 - alpha/2, df = df)
+    diff    <- (m1 - m2)
+    ci_low  <- diff - tcrit * se_diff
+    ci_high <- diff + tcrit * se_diff
+    list(diff = diff, se_diff = se_diff, t = tstat, df = df, p = p,
+         ci_low = ci_low, ci_high = ci_high)
+  }
+  
+  # iterate pairs
+  out <- list()
+  pmat <- matrix(NA_real_, k, k, dimnames = list(var_names, var_names))
+  idx <- 1
+  for (i in 1:(k-1)) {
+    for (j in (i+1):k) {
+      w <- welch_two(means[i], sds[i], ns[i], means[j], sds[j], ns[j],
+                     conf_level = conf_level)
+      out[[idx]] <- data.frame(
+        var1    = var_names[i],
+        var2    = var_names[j],
+        n1      = ns[i],
+        n2      = ns[j],
+        mean1   = means[i],
+        mean2   = means[j],
+        sd1     = sds[i],
+        sd2     = sds[j],
+        diff    = w$diff,
+        se_diff = w$se_diff,
+        t       = w$t,
+        df      = w$df,
+        p       = w$p,
+        ci_low  = w$ci_low,
+        ci_high = w$ci_high,
+        stringsAsFactors = FALSE
+      )
+      pmat[i, j] <- w$p
+      pmat[j, i] <- w$p
+      idx <- idx + 1
+    }
+  }
+  res <- do.call(rbind, out)
+  res$p_adj <- p.adjust(res$p, method = adjust)
+  res <- res[order(res$p_adj, res$var1, res$var2), ]
+  rownames(res) <- NULL
+  list(table = res, p_matrix = pmat)
+}
+
+
+```
+
+
+```{r}
+# Suppose you have 8 variables:
+var_names <- c("mass", "wingarea", "wingspan", "wing loading",
+               
+               "Fx", "Fy", "Fz", "|F|", "angle",
+               
+               "impulse", "impulse ratio", "impulse duration",
+               
+               "left duration", "right duration", "left impulse", "right impulse",
+               
+               "vx", "vy", "vz", "|v|", "atan", "accx", "accy", "accz",
+               
+               "turn rate", "centri", "wingbeatf", "downstroke", "upstroke")
+
+# Vectors of length 8:
+means <- c(breakpoint_sw, breakpoint_wa, breakpoint_ws, breakpoint_wl,
+           
+           breakpoint_Fx, breakpoint_Fy, breakpoint_Fz, breakpoint_Ftot, breakpoint_angle, 
+           
+           breakpoint_impulse, breakpoint_impulse_ratio, breakpoint_duration,
+           
+           breakpoint_left_duration, breakpoint_right_duration, breakpoint_left_impulse, breakpoint_right_impulse, 
+           breakpoint_vx, breakpoint_vy, breakpoint_vz, breakpoint_vres, breakpoint_tacc, breakpoint_accx, breakpoint_accy, breakpoint_accz, 
+           breakpoint_tr, breakpoint_centri, breakpoint_wb, breakpoint_downstroke, breakpoint_upstroke)
+
+
+
+# If you have SEs per variable:
+ses   <- c(breakpoint_se_sw, breakpoint_se_wa, breakpoint_se_ws, breakpoint_se_wl,
+           
+           breakpoint_se_Fx, breakpoint_se_Fy, breakpoint_se_Fz, breakpoint_se_Ftot, breakpoint_se_angle, 
+           
+           breakpoint_se_impulse, breakpoint_se_impulse_ratio, breakpoint_se_duration,
+           
+           breakpoint_se_left_duration, breakpoint_se_right_duration, breakpoint_se_left_impulse, breakpoint_se_right_impulse, 
+           breakpoint_se_vx, breakpoint_se_vy, breakpoint_se_vz, breakpoint_se_vres, breakpoint_se_tacc, breakpoint_se_accx, breakpoint_se_accy, breakpoint_se_accz, 
+           breakpoint_se_tr, breakpoint_se_centri, breakpoint_se_wb, breakpoint_se_downstroke, breakpoint_se_upstroke)
+
+#number of sampels
+ns    <- c(184, 184, 184, 184, 
+           975, 975, 975, 975, 975, 975, 975, 975, 975, 975, 975, 975,
+           918, 918, 918, 918, 918, 918, 918, 918, 
+           921, 921, 898, 897, 888)
+
+# If instead you have SDs, set sds=... and omit ses
+res <- welch_pairs_from_summary(means = means, ns = ns, ses = ses, var_names = var_names, adjust = "BH", conf_level = 0.95)
+
+# Tidy table:
+res$table
+# Symmetric matrix of p-values:
+
+```
+```{r}
+
+library(reshape2)
+
+# Example long data
+df <- as.data.frame(res$table) %>% 
+  dplyr::select(var1, var2, p_adj) %>%
+  mutate(p_adj = round(p_adj, 3))
+# (Optional) melt: here it just confirms the long structure
+long <- melt(df, id.vars = c("var1","var2"), measure.vars = "p_adj")
+
+# Cast to a matrix: rows = var1, columns = var2, values = p
+p_mat <- acast(long, var1 ~ var2, value.var = "value")  # 'value' is the melted column name
+p_mat
+#      X     Y
+# A 0.10 0.25
+
+```
+
+```{r}
+# p_mat: matrix produced by acast(var1 ~ var2)
+# 1) Fill the upper triangle from the lower triangle when the upper is NA
+upper_mask <- upper.tri(p_mat, diag = FALSE)
+p_mat[upper_mask] <- ifelse(
+  is.na(p_mat[upper_mask]),
+  t(p_mat)[upper_mask],  # take the mirrored entry if available
+  p_mat[upper_mask]
+)
+
+# 2) Drop the lower triangle + diagonal
+p_mat[lower.tri(p_mat, diag = TRUE)] <- NA
+
+```
+### bold the values if it is more than 0.05>
+```{r}
+library(knitr)
+library(kableExtra)
+
+
+p_fmt <- matrix(sprintf("%.2f", p_mat), nrow = nrow(p_mat),
+                dimnames = dimnames(p_mat))
+mask_upper <- upper.tri(p_mat, diag = FALSE)
+bold_mask  <- !is.na(p_mat) & mask_upper & (p_mat > 0.05)
+p_fmt[bold_mask] <- paste0("**", p_fmt[bold_mask], "**")
+p_fmt[lower.tri(p_mat, diag = TRUE)] <- ""
+
+kable(p_fmt)
+
+```
+### installing packages - orchaRd
+```{r}
+
+pacman::p_load(devtools, tidyverse, metafor, patchwork, R.rsp, emmeans)
+
+devtools::install_github("daniel1noble/orchaRd", force = TRUE)
+
+```
+
+# loading libraries 
+```{r cars}
+library(metafor)
+library(orchaRd)
+library(RColorBrewer)
+library(ggplot2)
+```
+
+
+```
+### group-wide comparison
+#### making a dataframe
+```{r}
+var_names <- c("mass", "wingarea", "wingspan", "wing loading",
+               
+               "Fx", "Fy", "Fz", "|F|", "angle",
+               
+               "impulse", "impulse ratio", "impulse duration",
+               
+               "left duration", "right duration", "left impulse", "right impulse",
+               
+               "vx", "vy", "vz", "|v|", "atan", "accx", "accy", "accz",
+               
+               "turn rate", "centri", "wingbeatf", "downstroke", "upstroke")
+
+groups <- c("morphology", "morphology", "morphology", "morphology", 
+            "leg force",  "leg force",  "leg force",  "leg force",  "leg force", 
+            "leg impulse", "leg impulse", "leg impulse", 
+            "leg impulse", "leg impulse", "leg impulse", "leg impulse",
+            "flight speed", "flight speed", "flight speed", "flight speed", 
+            "flight speed", "flight speed", "flight speed", "flight speed", 
+            "tortuosity", "tortuosity", "flight stability", "flight stability", "flight stability")
+
+# Vectors of length 8:
+means <- c(breakpoint_sw, breakpoint_wa, breakpoint_ws, breakpoint_wl,
+           
+           breakpoint_Fx, breakpoint_Fy, breakpoint_Fz, breakpoint_Ftot, breakpoint_angle, 
+           
+           breakpoint_impulse, breakpoint_impulse_ratio, breakpoint_duration,
+           
+           breakpoint_left_duration, breakpoint_right_duration, breakpoint_left_impulse, breakpoint_right_impulse, 
+           breakpoint_vx, breakpoint_vy, breakpoint_vz, breakpoint_vres, breakpoint_tacc, breakpoint_accx, breakpoint_accy, breakpoint_accz, 
+           breakpoint_tr, breakpoint_centri, breakpoint_wb, breakpoint_downstroke, breakpoint_upstroke)
+
+
+
+# If you have SEs per variable:
+ses   <- c(breakpoint_se_sw, breakpoint_se_wa, breakpoint_se_ws, breakpoint_se_wl,
+           
+           breakpoint_se_Fx, breakpoint_se_Fy, breakpoint_se_Fz, breakpoint_se_Ftot, breakpoint_se_angle, 
+           
+           breakpoint_se_impulse, breakpoint_se_impulse_ratio, breakpoint_se_duration,
+           
+           breakpoint_se_left_duration, breakpoint_se_right_duration, breakpoint_se_left_impulse, breakpoint_se_right_impulse, 
+           breakpoint_se_vx, breakpoint_se_vy, breakpoint_se_vz, breakpoint_se_vres, breakpoint_se_tacc, breakpoint_se_accx, breakpoint_se_accy, breakpoint_se_accz, 
+           breakpoint_se_tr, breakpoint_se_centri, breakpoint_se_wb, breakpoint_se_downstroke, breakpoint_se_upstroke)
+
+#number of sampels
+ns    <- c(184, 184, 184, 184, 
+           975, 975, 975, 975, 975, 975, 975, 975, 975, 975, 975, 975,
+           918, 918, 918, 918, 918, 918, 918, 918, 
+           921, 921, 898, 897, 888)
+
+df_groups <- data.frame("variable" = var_names, 
+                        "group" = groups, 
+                        "mean" = means, 
+                        "se" = ses, 
+                        "n" = ns)
+
+
+```
+#### metafor
+```{r}
+library(metafor)
+m <- rma.mv(
+  yi = mean,
+  V  = se^2,
+  mods = ~group,
+  method = "REML",# estimate each group’s breakpoint
+  random = ~ 1 | variable, # account for differences among variables
+  data = df_groups
+)
+
+summary(m)
+
+```
+### plots
+#### forest 
+- mean and sds quite nice but 
+```{r}
+
+
+ord <- order(df_groups$mean)
+
+# Forest plot with your labels and ordering
+forest(
+  x      = df_groups$mean[ord],        # yi
+  vi     = (df_groups$se[ord])^2,      # sampling variances
+  slab   = labels[ord],              # y-axis labels
+  xlab   = "Breakpoint (mean ± 95% CI)",
+  refline = 0
+)
+
+
+forest(m)
+```
+
+#### plot with sjPlot
+```{r}
+
+sjPlot::plot_model(m, type = "est", axis.title = "", axis.labels = var_names) 
+```
