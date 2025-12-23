@@ -1,7 +1,7 @@
 ---
 title: "zebra-force"
 author: "Kyu Min Huh"
-date: "2025-11-15"
+date: "2025-12-23"
 output: html_document
 ---
 
@@ -43,7 +43,7 @@ library(lmerTest)
 library(AICcmodavg)
 library(devtools)
 library(redres)
-library(robustlmm)
+#library(robustlmm)
 library(car)
 library(ggeffects)
 library(gvlma)
@@ -51,6 +51,7 @@ library(performance)
 library(sjPlot)
 library(multcomp)
 library(EnvStats)
+library(vegan)
 ```
 
 # I. Raw data plots (mean+-SD)
@@ -275,6 +276,26 @@ final_plot2
 
 
 ```
+### function plot_raw_base
+```{r}
+
+plot_raw_base <- function(variable, df, title){
+  
+  
+  plot <- ggplot(df, aes(x = Age, y = {{variable}}, color = Bird)) +
+    geom_point(position = position_jitter(width = 1), alpha = 0.3) +
+    scale_x_continuous(breaks = unique(df$Age)) +
+    labs(x = "Age", y = title, title = "") +
+    theme(legend.position = "none")+
+    guides(alpha = "none", color = "none") +
+    theme_minimal()
+  
+  return(plot)
+  
+}
+
+
+```
 ### function plot_age_var 
 ```{r}
 plot_age_var <- function(variable, df, title) {
@@ -341,6 +362,7 @@ plot_age_var <- function(variable, df, title) {
   return(plot)
 }
 ```
+
 ### function plot_del_var
 ```{r}
 
@@ -541,11 +563,11 @@ dim(outliers_force)
 
 ```
 ```{r}
-dim(force_data) #988
+dim(force_data) #1003
 
 force_clean <- force_data[-c(outliers_force$Obs.Num),]
 
-dim(force_clean) #961
+dim(force_clean) #975
 ```
 
 #### Trajectory
@@ -648,9 +670,9 @@ outliers_flights_tort <- rbind(out_tr, out_centri) %>% distinct()
 
 outliers_flights_wing <- rbind(out_wingbeat, out_upstroke, out_downstroke) %>% distinct()
 
-dim(outliers_flights_speed) # 14
+dim(outliers_flights_speed) # 19
 dim(outliers_flights_tort) # 16
-dim(outliers_flights_wing) # 43
+dim(outliers_flights_wing) # 36
 ```
 ```{r}
 dim(flights) #937
@@ -674,17 +696,15 @@ dim(flights_wing) #901
 ```
 ## A. Morphology
 ### a. wing area
-#### raw
-```{r wing area per bird}
-plot_wingarea <- plot_age_var(wingarea, wing_data_final, expression(wing~area ~(m^2)))
-
-plot_wingarea
-```
-#### delta
 ```{r}
-plot_wingarea_delta <- plot_del_var(wingarea, wing_data_final, expression(Delta~wing~area ~(m^2)))
+plot_wingarea <- plot_age_var(wingarea, wing_data_final, expression(wing~area ~(m^2)))
+plot_wingarea
 
+plot_wingarea_delta <- plot_del_var(wingarea, wing_data_final, expression(Delta~wing~area ~(m^2)))
 plot_wingarea_delta
+
+plot_wingarea_base <- plot_raw_base(wingarea, wing_data_final, expression(wing~area ~(m^2)))
+plot_wingarea_base
 
 
 ```
@@ -692,62 +712,58 @@ plot_wingarea_delta
 
 
 ### b. calculated wingspan
-#### raw
 ```{r}
 plot_wingspan <- plot_age_var(wingspan, wing_data_final, expression(wingspan~(mm)))
 plot_wingspan
-```
-#### delta
-```{r}
 
 plot_wingspan_delta <- plot_del_var(wingspan, wing_data_final, expression(Delta~wingspan~(mm)))
 plot_wingspan_delta
 
+plot_wingspan_base <- plot_raw_base(wingspan, wing_data_final, expression(Delta~wingspan~(mm)))
+plot_wingspan_base
 ```
+
 ### c. perching weight
 ```{r}
 plot_perch_g <- plot_age_var(bodyweight_g, force_data, "perching weight(g)")
 plot_perch_g
-```
-```{r}
 
 plot_perch_g_delta <- plot_del_var(bodyweight_g, force_data, "perching weight(g)")
 plot_perch_g_delta
 
+plot_perch_g_base <- plot_raw_base(bodyweight_g, force_data, "perching weight(g)")
+plot_perch_g_base
 
 ```
 ### d. scale weight
-#### raw
 ```{r}
 plot_scale_g <- plot_age_var(scale_weight*101.97, wing_data_final, expression(scale~mass~(g)))
-
 plot_scale_g
-```
-#### delta
-```{r}
 
 plot_scale_g_delta <- plot_del_var(scale_weight*101.97, wing_data_final, expression(Delta~scale~mass~(g)))
-
 plot_scale_g_delta
+
+plot_scale_g_base <- plot_raw_base(scale_weight*101.97, wing_data_final, expression(Delta~scale~mass~(g)))
+plot_scale_g_base
 ```
+#### scaled mass vs. perching weight
 ```{r}
-ggarrange(plot_perch_g, plot_scale_g, nrow = 1, ncol = 2)
+ggarrange(plot_perch_g, plot_scale_g, plot_perch_g_delta, plot_scale_g_delta, nrow = 2, ncol = 2)
 
 ```
 ### e. wing loading 
-#### raw
 ```{r}
 plot_wingloading <- plot_age_var(wing_loading, wing_data_final, expression(wing~loading~(N/m^2)))
 plot_wingloading
-```
-#### delta
-```{r}
+
 plot_wingloading_delta <- plot_del_var(wing_loading, wing_data_final, expression(Delta~wing~loading~(N/m^2)))
 plot_wingloading_delta
+
+plot_wingloading_base <- plot_raw_base(wing_loading, wing_data_final, expression(Delta~wing~loading~(N/m^2)))
+plot_wingloading_base
 ```
 
-
-### PLOTS - wingspan, wing area, scale weight, wing loading 
+### plots_morphology
 #### raw
 ```{r}
 
@@ -767,593 +783,248 @@ plots_morphology_delta
 ```
 ## B. Performance
 
-### LEGS
+### LEG FORCE
 #### a. max resultant force
-```{r}
-
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_maxF = mean(max_Ftot),
-    sd_maxF   = sd(max_Ftot),
-    .groups = "drop"
-  ) %>% as.data.frame()
-
-# Reference means at Age 20 for each Bird
-ref_summary <- summary_df %>%
-  filter(Age == 20) %>%
-  dplyr::select(Bird, mean_maxF, sd_maxF) %>%
-  dplyr::rename(ref_mean_maxF = mean_maxF, 
-         ref_sd_maxF = sd_maxF)
-
-# Centered summary: subtract the bird-specific mean at Age 20
-summary_df_init <- summary_df %>%
-  left_join(ref_summary, by = "Bird") %>%
-  mutate(
-    mean_maxF_centered = mean_maxF - ref_mean_maxF,
-    # Optionally keep sd as-is; centering doesn't change variability
-    sd_maxF_centered   = sd_maxF #SD unchanged
-  ) %>%
-  arrange(Bird, Age)
-
-
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_maxF = mean(max_Ftot, na.rm = TRUE),
-    sd_maxF   = sd(max_Ftot, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-
-# Extract reference mean at Age 20
-ref_mean <- trend_df %>%
-  filter(Age == 20) %>%
-  pull(mean_maxF)
-
-# Center all means by subtracting the mean at Age 20
-trend_df_init <- trend_df %>%
-  mutate(
-    mean_maxF_centered = mean_maxF - ref_mean,
-    sd_maxF_centered   = sd_maxF  # SD stays the same
-  )
-```
-##### relative
-```{r}
-plot_raw_Ftot <- plot_age_var(max_Ftot_bw, force_data, "|F| / bw")
-plot_raw_Ftot
-```
-##### raw
-```{r}
-plot_age_maxFtot <- ggplot(force_data, aes(x = Age, y = max_Ftot, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_maxF - sd_maxF, ymax = mean_maxF + sd_maxF, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_maxF, x = Age, color = Bird, alpha = 0.9),
-    size = 3, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_maxF, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_maxF - sd_maxF, ymax = mean_maxF + sd_maxF),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_maxF),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "max F (N)", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal() + 
-  theme(legend.position = "none")
-
-plot_age_maxFtot
-```
-##### centrerd
-```{r}
-plot_age_maxFtot_centred <- ggplot() +
-  
-  # error bard for per-bird summary
-  geom_errorbar(
-    data = summary_df_init,
-    aes(x = Age, 
-        ymin = mean_maxF_centered - sd_maxF_centered, 
-        ymax = mean_maxF_centered + sd_maxF_centered, 
-        color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  # Points for per-bird means
-  geom_point(
-    data = summary_df_init,
-    aes(y = mean_maxF_centered, x = Age, color = Bird, alpha = 0.9),
-    size = 3, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  # Lines for per-bird trends
-   geom_line(
-    data = summary_df_init,
-    aes(x = Age, y = mean_maxF_centered, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  # Ribbon for overall trend SD
-  geom_ribbon(
-    data = trend_df_init,
-    aes(x = Age, ymin = mean_maxF_centered - sd_maxF_centered, ymax = mean_maxF_centered + sd_maxF_centered),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  # Line for overall trend mean
-  geom_line(
-    data = trend_df_init,
-    aes(x = Age, y = mean_maxF_centered),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "max F centred (N)", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal() + 
-  theme(legend.position = "none")
-
-plot_age_maxFtot_centred
-
-
-
-
-```
-
-#### b. bodyweight relative max Ftot
-```{r}
-
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_maxF_bw = mean(max_Ftot_bw),
-    sd_maxF_bw   = sd(max_Ftot_bw),
-    .groups = "drop"
-  )
-
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_maxF_bw = mean(max_Ftot_bw, na.rm = TRUE),
-    sd_maxF_bw   = sd(max_Ftot_bw, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-
-plot_age_maxF_bw <- ggplot(force_data, aes(x = Age, y = max_Ftot_bw, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_maxF_bw - sd_maxF_bw, ymax = mean_maxF_bw + sd_maxF_bw, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_maxF_bw, x = Age, color = Bird, alpha = 0.9),
-    size = 3, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_maxF_bw, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_maxF_bw - sd_maxF_bw, ymax = mean_maxF_bw + sd_maxF_bw),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_maxF_bw),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "max F / bw", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal()+
-  theme(legend.position = "none")
-
-plot_age_maxF_bw
-```
-#### c. vertical force
 ##### absolute
 ```{r}
 
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_Fx = mean(-Fx_maxFtot),
-    sd_Fx = sd(-Fx_maxFtot),
-    .groups = "drop"
-  )
+plot_maxFtot_abs <- plot_age_var(max_Ftot, force_clean, expression(max~F~(N)))
+plot_maxFtot_abs
 
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_Fx = mean(-Fx_maxFtot, na.rm = TRUE),
-    sd_Fx   = sd(-Fx_maxFtot, na.rm = TRUE),
-    .groups = "drop"
-  )
+plot_maxFtot_abs_delta <- plot_del_var(max_Ftot, force_clean, expression(max~F~(N)))
+plot_maxFtot_abs_delta
 
-
-plot_age_Fx <- ggplot(force_data, aes(x = Age, y = -Fx_maxFtot, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_Fx - sd_Fx, ymax = mean_Fx + sd_Fx, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_Fx, x = Age, color = Bird, alpha = 0.9),
-    size = 2, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_Fx, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_Fx - sd_Fx, ymax = mean_Fx + sd_Fx),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_Fx),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "Fx", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal() +
-  theme(legend.position = "none")
-
-plot_age_Fx
-
+plot_maxFtot_abs_base <- plot_raw_base(max_Ftot, force_clean, expression(max~F~(N)))
+plot_maxFtot_abs_base
 
 ```
 ##### relative
 ```{r}
-plot_age_Fz_bw <- plot_age_var(Fx_maxFtot_bw, force_data, "Fz/bw (N)")
-plot_age_Fz_bw
-```
-```{r}
 
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_Fx_bw = mean(Fx_maxFtot_bw),
-    sd_Fx_bw = sd(Fx_maxFtot_bw),
-    .groups = "drop"
-  )
+plot_maxFtot <- plot_age_var(max_Ftot_bw, force_clean, expression(max~F~"/"~bw~(N)))
+plot_maxFtot
 
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_Fx_bw = mean(Fx_maxFtot_bw, na.rm = TRUE),
-    sd_Fx_bw   = sd(Fx_maxFtot_bw, na.rm = TRUE),
-    .groups = "drop"
-  )
+plot_maxFtot_delta <- plot_del_var(max_Ftot_bw, force_clean, expression(max~F~"/"~bw~(N)))
+plot_maxFtot_delta
 
-
-plot_age_Fx_bw <- ggplot(force_data, aes(x = Age, y = Fx_maxFtot_bw, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_Fx_bw - sd_Fx_bw, 
-        ymax = mean_Fx_bw + sd_Fx_bw, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_Fx_bw, x = Age, color = Bird, alpha = 0.9),
-    size = 2, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_Fx_bw, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_Fx_bw - sd_Fx_bw, ymax = mean_Fx_bw + sd_Fx_bw),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_Fx_bw),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "Fz / bw (N)", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal() +
-  theme(legend.position = "none")
-
-plot_age_Fx_bw
+plot_maxFtot_base <- plot_raw_base(max_Ftot_bw, force_clean, expression(max~F~"/"~bw~(N)))
+plot_maxFtot_base
 
 ```
-#### d. horizontal force
+#### c. horizontal force (Fy)
 ##### absolute
 ```{r}
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_Fy = mean(Fy_maxFtot),
-    sd_Fy = sd(Fy_maxFtot),
-    .groups = "drop"
-  )
 
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_Fy = mean(Fy_maxFtot, na.rm = TRUE),
-    sd_Fy   = sd(Fy_maxFtot, na.rm = TRUE),
-    .groups = "drop"
-  )
+plot_maxFy_abs <- plot_age_var(Fy_maxFtot, force_clean, expression(max~Fy~(N)))
+plot_maxFy_abs
+
+plot_maxFy_abs_delta <- plot_del_var(Fy_maxFtot, force_clean, expression(max~Fy~(N)))
+plot_maxFy_abs_delta
+
+plot_maxFy_abs_base <- plot_raw_base(Fy_maxFtot, force_clean, expression(max~Fy~(N)))
+plot_maxFy_abs_base
 
 
-plot_age_Fy <- ggplot(force_data, aes(x = Age, y = Fy_maxFtot, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_Fy - sd_Fy, ymax = mean_Fy + sd_Fy, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_Fy, x = Age, color = Bird, alpha = 0.9),
-    size = 2, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_Fy, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_Fy - sd_Fy, ymax = mean_Fy + sd_Fy),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_Fy),
-    color = "grey50", alpha = 0.8,size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "Fy", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  theme_minimal() +
-  theme(legend.position = "none")
+```
+##### relative
+```{r}
+plot_maxFy <- plot_age_var(Fy_maxFtot_bw, force_clean, expression(max~Fy~"/"~bw~(N)))
+plot_maxFy
 
-plot_age_Fy
+plot_maxFy_delta <- plot_del_var(Fy_maxFtot_bw, force_clean, expression(max~Fy~"/"~bw~(N)))
+plot_maxFy_delta
 
+plot_maxFy_base <- plot_raw_base(Fy_maxFtot_bw, force_clean, expression(max~Fy~"/"~bw~(N)))
+plot_maxFy_base
+```
+
+#### d. vertical force (Fz)
+##### absolute
+```{r}
+plot_maxFz_abs <- plot_age_var(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs
+
+plot_maxFz_abs_delta <- plot_del_var(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs_delta
+
+plot_maxFz_abs_base <- plot_raw_base(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs_base
 ```
 
 ##### relative
 ```{r}
-summary_df <- force_data %>%
-  group_by(Bird, Age) %>%
-  summarise(
-    mean_Fy_bw = mean(Fy_maxFtot_bw),
-    sd_Fy_bw = sd(Fy_maxFtot_bw),
-    .groups = "drop"
-  )
+plot_maxFz <- plot_age_var(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz
 
-trend_df <- force_data %>%
-  group_by(Age) %>%
-  summarise(
-    mean_Fy_bw = mean(Fy_maxFtot_bw, na.rm = TRUE),
-    sd_Fy_bw   = sd(Fy_maxFtot_bw, na.rm = TRUE),
-    .groups = "drop"
-  )
+plot_maxFz_delta <- plot_del_var(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz_delta
 
-
-plot_age_Fy_bw <- ggplot(force_data, aes(x = Age, y = Fy_maxFtot_bw, color = Bird)) +
-  geom_point(position = position_jitter(width = 1), alpha = 0.3) +   # dots = trials
-  geom_errorbar(
-    data = summary_df,
-    aes(x=Age, ymin = mean_Fy_bw - sd_Fy_bw, ymax = mean_Fy_bw + sd_Fy_bw, color = Bird, alpha = 0.6),
-    width = 2, size = 0.8,
-    inherit.aes = FALSE) +
-  
-  geom_point(
-    data = summary_df,
-    aes(y = mean_Fy_bw, x = Age, color = Bird, alpha = 0.9),
-    size = 2, shape = 18,
-    inherit.aes = FALSE
-  ) +
-  
-   geom_line(
-    data = summary_df,
-    aes(x = Age, y = mean_Fy_bw, color = Bird, group = Bird, alpha = 0.8),
-    size = 0.7,
-    inherit.aes = FALSE) +
-  
-  geom_ribbon(
-    data = trend_df,
-    aes(x = Age, ymin = mean_Fy_bw - sd_Fy_bw, ymax = mean_Fy_bw + sd_Fy_bw),
-    fill = "grey70", alpha = 0.5,
-    inherit.aes = FALSE
-  ) +
-  
-  geom_line(
-    data = trend_df,
-    aes(x = Age, y = mean_Fy_bw),
-    color = "grey50", alpha = 0.8, size = 1.2,
-    inherit.aes = FALSE) +
-  
-   scale_x_continuous(breaks = unique(force_data$Age)) +
-  labs(x = "Age", y = "Fy / bw (N)", title = "") +
-  #ylim(10, 25)+
-  guides(alpha = "none")+
-  ylim(0,6) +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-plot_age_Fy_bw
+plot_maxFz_base <- plot_raw_base(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz_base
 
 
 ```
 #### e. longitudinal force
 ##### absolute
 ```{r}
+plot_maxFx_abs <- plot_age_var(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs
 
-plot_age_Fz <- plot_age_var(Fz_maxFtot, force_data, "max longitudinal force (N)")
+plot_maxFx_abs_delta <- plot_del_var(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs_delta
+
+plot_maxFx_abs_base <- plot_raw_base(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs_base
 ```
 ##### relative
 ```{r}
-plot_age_Fx_bw <- plot_age_var(Fz_maxFtot_bw, force_data, "Fx/bw (N)")
-plot_age_Fx_bw
+plot_maxFx <- plot_age_var(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx
 
+plot_maxFx_delta <- plot_del_var(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx_delta
+
+plot_maxFx_base <- plot_raw_base(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx_base
+```
+#### f. takeoff angle 
+```{r}
+plot_angle <- plot_age_var(angle, force_clean, expression(take-off~angle~("°")))
+plot_angle
+
+plot_angle_delta <- plot_del_var(angle, force_clean, expression(take-off~angle~("°")))
+plot_angle_delta
+
+plot_angle_base <- plot_raw_base(angle, force_clean, expression(take-off~angle~("°")))
+plot_angle_base
 ```
 
 
-#### f. impulse
+### LEG IMPULSE
 ##### impulse 
 ```{r}
 
-plot_age_impulse <- plot_age_var(impulse*1000, force_data, "impulse (mN*s)") +ylim(-10, 60) #1 row removed
+plot_impulse <- plot_age_var(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse
 
-plot_age_impulse
+plot_impulse_delta <- plot_del_var(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse_delta
+
+plot_impulse_base <- plot_raw_base(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse_base
+
 ```
 
 ##### duration
 ```{r}
-plot_age_duration <- plot_age_var(duration*1000, force_data, "impulse duration (ms)") 
+plot_duration <- plot_age_var(duration, force_clean, expression(duration~(ms)))
+plot_duration
 
-plot_age_duration
+plot_duration_delta <- plot_del_var(duration, force_clean, expression(duration~(ms)))
+plot_duration_delta
+
+plot_duration_base <- plot_raw_base(duration, force_clean, expression(duration~(ms)))
+plot_duration_base
 ```
 
 ##### impulse ratio
 ```{r}
-plot_age_impulse_ratio <- plot_age_var(impulse_ratio, force_clean, "impulse ratio")
+plot_impulse_ratio <- plot_age_var(impulse_ratio, force_clean, expression(impulse~ratio))
+plot_impulse_ratio
 
-plot_age_impulse_ratio
+plot_impulse_ratio_delta <- plot_del_var(impulse_ratio, force_clean, expression(impulse~ratio))
+plot_impulse_ratio_delta
+
+plot_impulse_ratio_base <- plot_raw_base(impulse_ratio, force_clean, expression(impulse~ratio))
+plot_impulse_ratio_base
 ```
 
 
 ##### left impulse
 ```{r}
-plot_left_impulse <- plot_age_var(left_impulse*1000, force_data, "left impulse (mN*s)") #1 outlier removed
+plot_left_impulse <- plot_age_var(left_impulse*1000, force_clean, expression(left~impulse~(ms))) 
 plot_left_impulse
+
+plot_left_impulse_delta <- plot_del_var(left_impulse*1000, force_clean, expression(left~impulse~(ms))) 
+plot_left_impulse_delta
+
+plot_left_impulse_base <- plot_raw_base(left_impulse*1000, force_clean, expression(left~impulse~(ms)))
+plot_left_impulse_base
 ```
 
 ##### right impulse
 ```{r}
-plot_right_impulse <- plot_age_var(right_impulse*1000, force_data, "right impulse (mN*s)") 
+plot_right_impulse <- plot_age_var(right_impulse*1000, force_clean, expression(right~impulse~(ms))) 
 plot_right_impulse
+
+plot_right_impulse_delta <- plot_del_var(right_impulse*1000, force_clean, expression(right~impulse~(ms))) 
+plot_right_impulse_delta
+
+plot_right_impulse_base <- plot_raw_base(right_impulse*1000, force_clean, expression(right~impulse~(ms)))
+plot_right_impulse_base
 ```
 
 ##### left duration
 ```{r}
-plot_left_duration <- plot_age_var(left_duration*1000, force_data, "left duration (ms)")
+plot_left_duration <- plot_age_var(left_duration*1000, force_clean, expression(left~duration~(ms)))
 plot_left_duration
+
+plot_left_duration_delta <- plot_del_var(left_duration*1000, force_clean, expression(left~duration~(ms))) 
+plot_left_duration_delta
+
+plot_left_duration_base <- plot_raw_base(left_duration*1000, force_clean, expression(left~duration~(ms)))
+plot_left_duration_base
 ```
 
 ##### right duration
 ```{r}
-
-plot_right_duration <- plot_age_var(right_duration*1000, force_data, "right duration (ms)") #+ ylim(0, 0.075)
-
+plot_right_duration <- plot_age_var(right_duration*1000, force_clean, expression(right~duration~(ms)))
 plot_right_duration
 
+plot_right_duration_delta <- plot_del_var(right_duration*1000, force_clean, expression(right~duration~(ms))) 
+plot_right_duration_delta
+
+plot_left_duration_base <- plot_raw_base(right_duration*1000, force_clean, expression(right~duration~(ms)))
+plot_left_duration_base
 ```
 
-
-#### f. takeoff angle 
-```{r}
-
-plot_age_angle <- plot_age_var(angle, force_clean, "takeoff angle (degrees)")
-plot_age_angle 
-```
-
-
-### PLOTS. altogether
-```{r}
-ggarrange(plot_age_maxFtot, plot_age_Fx, plot_age_Fy, plot_age_maxF_bw, plot_age_Fx_bw, plot_age_Fy_bw, nrow = 2, ncol=3)
-```
-
-#### a. turn rate
+### TORTUOSITY
+#### turn rate
 ##### mean
 ```{r}
-plot_tr_mean <- plot_age_var(mean_turn_rate, flights_tort, "turn rate (°/s)")
-plot_tr_mean
+plot_tr <- plot_age_var(mean_turn_rate, flights_tort, expression(turn~rate~"(°/s)"))
+plot_tr
+
+plot_tr_delta <- plot_del_var(mean_turn_rate, flights_tort, expression(turn~rate~"(°/s)"))
+plot_tr_delta
+
+plot_tr_base <- plot_raw_base(mean_turn_rate, flights_tort, expression(turn~rate~"(°/s)"))
+plot_tr_base
 
 ```
 
 ##### max
 ```{r}
 
-plot_tr_max <- plot_age_var(max_turn_rate, flights, "max turn rate (°/s)") +ylim(-1250, 5000)
+plot_tr_max <- plot_age_var(max_turn_rate, flights_tort, "max turn rate (°/s)") +ylim(-1250, 5000)
 plot_tr_max
 ```
 
-
-#### b. centripetal acceleration
+#### centripetal acceleration
 ##### mean
 ```{r}
 ytitle <- expression(a[centripetal]~(m/s^2))
-plot_ctracc_mean <- plot_age_var(mean_centri_acc, flights_tort, ytitle) +ylim(0, 30)
-plot_ctracc_mean
+
+
+plot_ctracc <- plot_age_var(mean_centri_acc, flights_tort, ytitle) #+ylim(0, 30)
+plot_ctracc
+
+plot_ctracc_delta <- plot_del_var(mean_centri_acc, flights_tort, ytitle) #+ylim(0, 30)
+plot_ctracc_delta
+
+plot_ctracc_base <- plot_raw_base(mean_centri_acc, flights_tort, ytitle)
+plot_ctracc_base
+
 ```
 
 ##### max
@@ -1363,153 +1034,209 @@ plot_ctracc_max <- plot_age_var(max_centri_acc, flights, "max centripetal accele
 plot_ctracc_max
 
 ```
-#### c. resultant velocity
+### FLIGHT SPEED
+#### velocity magnitude
 ##### mean
 ```{r}
-plot_vres_mean <- plot_age_var(mean_v_res, flights, "|v| (m/s)")
-plot_vres_mean
+plot_vres <- plot_age_var(mean_v_res, flights_speed, "|v| (m/s)")
+plot_vres
+
+plot_vres_delta <- plot_del_var(mean_v_res, flights_speed, "|v| (m/s)")
+plot_vres_delta
+
+plot_vres_base <- plot_raw_base(mean_v_res, flights_speed, "|v| (m/s)")
+plot_vres_base
+
 ```
 ##### max
 ```{r}
-plot_vres_max <- plot_age_var(variable = max_v_res, df = flights, title = "max resultant velocity (m/s)")
+plot_vres_max <- plot_age_var(variable = max_v_res, df = flights, title = "|v| (m/s)")
 plot_vres_max
 
 ```
 
-#### d. tangential acceleration
+#### tangential acceleration
 ##### mean
 ```{r}
 ytitle <- expression(a[tan]~(m/s^2))
-plot_tacc_mean <- plot_age_var(mean_acc_tan, flights, ytitle)
-plot_tacc_mean
+plot_tacc <- plot_age_var(mean_acc_tan, flights_speed, ytitle)
+plot_tacc
+
+plot_tacc_delta <- plot_del_var(mean_acc_tan, flights_speed, ytitle)
+plot_tacc_delta
+
+plot_tacc_base <- plot_raw_base(mean_acc_tan, flights_speed, ytitle)
+plot_tacc_base
+
+
 ```
 ##### max
 ```{r}
-plot_accres_max <- plot_age_var(max_acc_tan, flights, "max resultant acceleration (m/s^2)") +ylim(-100, 150)
-plot_accres_max
+plot_tacc_max <- plot_age_var(max_acc_tan, flights_speed, ytitle) #+ylim(-100, 150)
+plot_tacc_max
 
 ```
-#### e. X vel & acc
-##### mean v
+#### X vel 
+##### mean 
 ```{r}
 ytitle <- expression(v[x]~(m/s))
-plot_vx_mean <- plot_age_var(mean_vx, flights, ytitle)
-plot_vx_mean
+plot_vx <- plot_age_var(mean_vx, flights_speed, ytitle)
+plot_vx
+
+plot_vx_delta <- plot_del_var(mean_vx, flights_speed, ytitle)
+plot_vx_delta 
+
+plot_vx_base <- plot_raw_base(mean_vx, flights_speed, ytitle)
+plot_vx_base
 ```
-##### max v
+
+##### max 
 ```{r}
-plot_vx_max <- plot_age_var(max_vx, flights, "max X velocity (m/s)")
+plot_vx_max <- plot_age_var(max_vx, flights_speed, "max X velocity (m/s)")
 plot_vx_max
 ```
-##### mean acc
+#### X acc
+##### mean
 ```{r}
 ytitle <- expression(acc[x]~(m/s^2))
-plot_accx_mean <- plot_age_var(mean_acc_x, flights, ytitle) 
-plot_accx_mean
+plot_accx <- plot_age_var(mean_acc_x, flights_speed, ytitle) 
+plot_accx
+
+plot_accx_delta <- plot_del_var(mean_acc_x, flights_speed, ytitle) 
+plot_accx_delta
+
+plot_accx_base <- plot_raw_base(mean_acc_x, flights_speed, ytitle) 
+plot_accx_base
 
 ```
-##### max acc
+##### max 
 ```{r}
 plot_accx_max <- plot_age_var(max_acc_x, flights, "max X acceleration (m/s^2)") 
 plot_accx_max
 
 ```
-#### f. Y vel & acc
-##### mean v
+#### Y vel 
+##### mean 
 ```{r}
 ytitle <- expression(v[y]~(m/s))
-plot_vy_mean <- plot_age_var(mean_vy, flights, ytitle) 
-plot_vy_mean
+plot_vy <- plot_age_var(mean_vy, flights_speed, ytitle) 
+plot_vy
+plot_vy_delta <- plot_del_var(mean_vy, flights_speed, ytitle) 
+plot_vy_delta 
+plot_vy_base <- plot_raw_base(mean_vy, flights_speed, ytitle) 
+plot_vy_base
 ```
-##### max v
+##### max 
 ```{r}
-plot_vy_max <- plot_age_var(max_vy, flights, "max Y velocity (m/s)")
-plot_vy_max +ylim(0, 6)
+plot_vy_max <- plot_age_var(max_vy, flights_speed, "max Y velocity (m/s)")
+plot_vy_max #+ylim(0, 6)
 ```
-##### mean acc
+#### Y acc
+##### mean 
 ```{r}
 ytitle <- expression(acc[y]~(m/s^2))
-plot_accy_mean <- plot_age_var(mean_acc_y, flights_speed, ytitle) 
-plot_accy_mean
+plot_accy <- plot_age_var(mean_acc_y, flights_speed, ytitle) 
+plot_accy
+
+plot_accy_delta <- plot_del_var(mean_acc_y, flights_speed, ytitle) 
+plot_accy_delta
+
+plot_accy_base <- plot_raw_base(mean_acc_y, flights_speed, ytitle) 
+plot_accy_base
 ```
-##### max acc
+##### max 
 ```{r}
 plot_accy_max <- plot_age_var(mean_acc_y, flights, "max Y acceleration (m/s^2)") 
 plot_accy_max
 ```
-#### g. Z vel & acc
-##### mean v
+#### Z vel 
+##### mean 
 ```{r}
 ytitle <- expression(v[z]~(m/s))
-plot_vz_mean <- plot_age_var(mean_vz, flights, ytitle)
-plot_vz_mean
+plot_vz <- plot_age_var(mean_vz, flights_speed, ytitle)
+plot_vz
+
+plot_vz_delta <- plot_del_var(mean_vz, flights_speed, ytitle)
+plot_vz_delta 
+plot_vz_base <- plot_raw_base(mean_vz, flights_speed, ytitle)
+plot_vz_base
 ```
-##### max v
+##### max 
 ```{r}
 plot_vz_max <- plot_age_var(max_vz, flights, "max Z velocity (m/s)")
 plot_vz_max
 
 ```
-##### mean acc
+#### Z acc
+##### mean
 ```{r}
 ytitle <- expression(acc[z]~(m/s^2))
-plot_accz_mean <- plot_age_var(mean_acc_z, flights_speed, ytitle)
-plot_accz_mean
+plot_accz <- plot_age_var(mean_acc_z, flights_speed, ytitle)
+plot_accz
+
+plot_accz_delta <- plot_del_var(mean_acc_z, flights_speed, ytitle)
+plot_accz_delta
+
+plot_accz_base <- plot_raw_base(mean_acc_z, flights_speed, ytitle)
+plot_accz_base
 
 ```
-##### max acc
+##### max 
 ```{r}
 plot_accz_max <- plot_age_var(max_acc_z, flights, "max Z acceleration (m/s^2)") 
 plot_accz_max
 ```
-### WINGBEATS
-#### frequency
-##### raw
+
+### FLIGHT STABILITY
+#### wingbeat frequency
 ```{r}
-plot_wb_mean <- plot_age_var(wingbeat_frequency, flights_wing, "wingbeat frequency (Hz)")
-plot_wb_mean
-```
-##### delta
-```{r}
+plot_wb <- plot_age_var(wingbeat_frequency, flights_wing,  expression(wingbeat~frequency~(Hz)))
+plot_wb
 
 plot_wb_delta <- plot_del_var(wingbeat_frequency, flights_wing, expression(Delta~wingbeat~frequency~(Hz)))
 plot_wb_delta
 
+plot_wb_base <- plot_raw_base(wingbeat_frequency, flights_wing, expression(wingbeat~frequency~(Hz)))
+plot_wb_base
 ```
-#### upstroke
-```{r}
-plot_upstroke_acc <- plot_age_var(upstroke_amplitude_acc, flights, "upstroke_head_acc (m/s^2)")
-plot_upstroke_acc
 
-plot_upstroke_mm <- plot_age_var(1000*upstroke_amplitude_m, flights_wing, "upstroke head displacement (mm)")
+
+#### upstroke
+##### acc
+```{r}
+plot_upstroke_acc <- plot_age_var(upstroke_amplitude_acc, flights, expression(upstroke~acceleration~(m/s^2)))
+plot_upstroke_acc
+```
+##### mm
+```{r}
+plot_upstroke_mm <- plot_age_var(1000*upstroke_amplitude_m, flights_wing, expression(upstroke~head~displacement~(mm)))
 plot_upstroke_mm
+
+plot_upstroke_mm_delta <- plot_del_var(1000*upstroke_amplitude_m, flights_wing, expression(Delta~upstroke~head~displacement~(mm)))
+plot_upstroke_mm_delta
+
+plot_upstroke_mm_base <- plot_raw_base(1000*upstroke_amplitude_m, flights_wing, expression(upstroke~head~displacement~(mm)))
+plot_upstroke_mm_base
 ```
 #### downstroke
+##### acc
 ```{r}
-plot_downstroke_acc <- plot_age_var(downstroke_amplitude_acc, flights, "downstroke_head_acc (m/s^2)")
+plot_downstroke_acc <- plot_age_var(downstroke_amplitude_acc, flights, expression(downstroke~head~displacement~(mm)))
 plot_downstroke_acc
-
-plot_downstroke_mm <- plot_age_var(1000*downstroke_amplitude_m, flights_wing, "downstroke head displacement (mm)")
-plot_downstroke_mm
 ```
 
-### ggarrange Plots
 ```{r}
-ggarrange(plot_vx_mean, plot_vy_mean, plot_vz_mean, 
-          plot_accx_mean, plot_accy_mean, plot_accz_mean, nrow = 2, ncol = 3)
 
-ggarrange(plot_vx_max, plot_vy_max, plot_vz_max,
-          plot_accx_max, plot_accy_max, plot_accz_max, nrow = 2, ncol = 3)
+plot_downstroke_mm <- plot_age_var(1000*downstroke_amplitude_m, flights_wing,  expression(downstroke~head~displacement~(mm)))
+plot_downstroke_mm
 
-ggarrange(plot_vres_mean, plot_tacc_mean, plot_tr_mean, plot_ctracc_mean, nrow = 2, ncol =2)
 
-ggarrange(plot_vres_max, plot_accres_max, plot_tr_max, plot_ctracc_max, nrow = 2, ncol =2 )
+plot_downstroke_mm_delta <- plot_del_var(1000*downstroke_amplitude_m, flights_wing, expression(Delta~downstroke~head~displacement~(mm)))
+plot_downstroke_mm_delta
 
-ggarrange(plot_wb_mean, plot_downstroke_mm, plot_upstroke_mm, nrow = 1, ncol = 3)
+plot_downstroke_mm_base <- plot_raw_base(1000*downstroke_amplitude_m, flights_wing, expression(downstroke~head~displacement~(mm)))
+plot_downstroke_mm_base
 ```
-
-
-
 
 # II. Model analysis 
 ## function detect_breakpoint()
@@ -1790,12 +1517,15 @@ plot_breakpoint <- function(breakpoint, breakpoint_se, base_plot){
 
 
 ```
+
+
 ## function plot_final
 ```{r}
 
 plot_final <- function(breakpoint, breakpoint_se,
                            model,            # lmer model
                            df,               # data used for model
+                           overlay = FALSE,
                            base_plot,        # ggplot object
                            include_brood = TRUE,
                            brood_level = "Box5",
@@ -1838,6 +1568,9 @@ plot_final <- function(breakpoint, breakpoint_se,
   # 7) Compose plot
   yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
   y_top <- max(yr)
+  
+  
+  if(overlay == TRUE){
 
   p <- base_plot +
     
@@ -1857,7 +1590,36 @@ plot_final <- function(breakpoint, breakpoint_se,
         linewidth = 3,
         alpha = 0.7) +
     ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))
-  
+  }
+  else{
+    
+  p <- ggplot2::geom_line( # predicted means
+      data = newdat_out,
+      ggplot2::aes(x = Age, y = pred),
+      color = "#1f77b4", size = 1.5, inherit.aes = FALSE
+    ) +
+      geom_ribbon( # edit this part to overlay 95% CI (+-1 SD) for predicted means
+      data = newdat_out,
+      aes(x = Age, ymin = mean - sd, ymax = mean + sd),
+      fill = "grey70", alpha = 0.5,
+      inherit.aes = FALSE) + 
+    # ggplot2 CI levels 
+    
+    ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
+    ggplot2::annotate(
+        "segment",
+        x = breakpoint - breakpoint_se,
+        xend = breakpoint + breakpoint_se,
+        y    = y_top,
+        yend = y_top,
+        color = "#E2AFDE",
+        linewidth = 3,
+        alpha = 0.7) +
+    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))  
+    
+    
+    
+  }
 
   return(list(plot = p, newdat = newdat_out))
 }
@@ -2069,20 +1831,20 @@ tab_model(m_sw)
 anova_sw <- Anova(m_sw, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
-#before slope = 0?
-linearHypothesis(m_sw, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-
-#after slope = 0?
-linearHypothesis(m_sw, "Age = 0", test = "F")  # Is the slope after the breakpoint flat? -> no
-
-#same slope?
-linearHypothesis(m_sw, "Age = Age+hinge", test = "F") #Is the slope before and after the same? -> n
-
-#before breakpoint slope estimate
-deltaMethod(m_sw, "Age + hinge") 
-
-#after breakpoint slope estimate
-deltaMethod(m_sw, "Age") 
+# #before slope = 0?
+# linearHypothesis(m_sw, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# 
+# #after slope = 0?
+# linearHypothesis(m_sw, "Age = 0", test = "F")  # Is the slope after the breakpoint flat? -> no
+# 
+# #same slope?
+# linearHypothesis(m_sw, "Age = Age+hinge", test = "F") #Is the slope before and after the same? -> n
+# 
+# #before breakpoint slope estimate
+# deltaMethod(m_sw, "Age + hinge") 
+# 
+# #after breakpoint slope estimate
+# deltaMethod(m_sw, "Age") 
 
 
 
@@ -2091,16 +1853,16 @@ deltaMethod(m_sw, "Age")
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_sw, breakpoint_se_sw, 
-                     m_sw, 
-                     wing_data_final,
-                     plot_scale_g,
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_scale_g_final <- output[1]
-plot_scale_g_final
+# output <- plot_final(breakpoint_sw, breakpoint_se_sw, 
+#                      m_sw, 
+#                      wing_data_final,
+#                      plot_scale_g,
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_scale_g_final <- output[1]
+# plot_scale_g_final
 
 ```
 
@@ -2162,33 +1924,35 @@ anova_wingspan <- Anova(m_wingspan, type =3, test.statistic = "F") %>% as.data.f
 
 anova_wingspan
 
-# Hypothesis testing
-linearHypothesis(m_wingspan, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(m_wingspan, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(m_wingspan, "Age = Age+hinge", test = "F") #Is the slope before and after the same? -> n
-
-# slope estimates, SE, CI 
-
-#before slope
-print(deltaMethod(m_wingspan, "Age + hinge"))
-#after slope
-print(deltaMethod(m_wingspan, "Age"))
+# # Hypothesis testing
+# linearHypothesis(m_wingspan, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(m_wingspan, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(m_wingspan, "Age = Age+hinge", test = "F") #Is the slope before and after the same? -> n
+# 
+# # slope estimates, SE, CI 
+# 
+# #before slope
+# print(deltaMethod(m_wingspan, "Age + hinge"))
+# #after slope
+# print(deltaMethod(m_wingspan, "Age"))
 
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_ws, breakpoint_se_ws, 
-                     m_wingspan, 
-                     wing_data_final,
-                     plot_wingspan,
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_wingspan_final <- output[1]
-plot_wingspan_final
+# output <- plot_final(breakpoint_ws, breakpoint_se_ws, 
+#                      m_wingspan, 
+#                      wing_data_final,
+#                      plot_wingspan,
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_wingspan_final <- output[1]
+# plot_wingspan_final
+# 
+# wingspan_newdat_out <- output[2]
 
 ```
 
@@ -2253,32 +2017,32 @@ anova_wingarea <- Anova(m_wingarea, type =3, test.statistic = "F") %>% as.data.f
 
 anova_wingarea
 
-# Hypothesis testing
-linearHypothesis(m_wingarea, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(m_wingarea, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(m_wingspan, "Age = Age+hinge", test = "F")
-
-# slope estimates, SE, CI 
-
-#before slope
-print(deltaMethod(m_wingspan, "Age + hinge"))
-#after slope
-print(deltaMethod(m_wingspan, "Age"))
+# # Hypothesis testing
+# linearHypothesis(m_wingarea, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(m_wingarea, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(m_wingspan, "Age = Age+hinge", test = "F")
+# 
+# # slope estimates, SE, CI 
+# 
+# #before slope
+# print(deltaMethod(m_wingspan, "Age + hinge"))
+# #after slope
+# print(deltaMethod(m_wingspan, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_wa, breakpoint_se_wa, 
-                     m_wingarea, 
-                     wing_data_final,
-                     plot_wingarea,
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_wingarea_final <- output[1]
-plot_wingarea_final
+# output <- plot_final(breakpoint_wa, breakpoint_se_wa, 
+#                      m_wingarea, 
+#                      wing_data_final,
+#                      plot_wingarea,
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_wingarea_final <- output[1]
+# plot_wingarea_final
 
 ```
 #### wing loading
@@ -2350,29 +2114,29 @@ anova_wl <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% 
 
 anova_wl # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_wl, breakpoint_se_wl, #CHANGE HERE
-                     m_wl, # CHANGE HERE
-                     wing_data_final, # CHANGE HERE
-                     plot_wingloading, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box3",
-                     sex = "M"
-                     )
-plot_wl_final <- output[1] #CHANGE HERE
-plot_wl_final # CHANGE HERE
+# output <- plot_final(breakpoint_wl, breakpoint_se_wl, #CHANGE HERE
+#                      m_wl, # CHANGE HERE
+#                      wing_data_final, # CHANGE HERE
+#                      plot_wingloading, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box3",
+#                      sex = "M"
+#                      )
+# plot_wl_final <- output[1] #CHANGE HERE
+# plot_wl_final # CHANGE HERE
 
 
 ```
@@ -2435,14 +2199,14 @@ plot_ranef(m_Fx)
 ```{r}
 
 #before slope
-print(deltaMethod(m_Fx, "Age + hinge"))
-#after slope
-print(deltaMethod(m_Fx, "Age"))
-
-#hypothesis test
-linearHypothesis(m_Fx, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(m_Fx, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(m_Fx, "Age = Age+hinge", test = "F")
+# print(deltaMethod(m_Fx, "Age + hinge"))
+# #after slope
+# print(deltaMethod(m_Fx, "Age"))
+# 
+# #hypothesis test
+# linearHypothesis(m_Fx, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(m_Fx, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(m_Fx, "Age = Age+hinge", test = "F")
 
 #term test
 anova_Fx <- Anova(m_Fx, type =3, test.statistic = "F") %>% as.data.frame() %>%
@@ -2451,7 +2215,7 @@ anova_Fx <- Anova(m_Fx, type =3, test.statistic = "F") %>% as.data.frame() %>%
 anova_Fx
 
 # Random effects 
-tab_model(m_Fx)
+# tab_model(m_Fx)
 
 
 
@@ -2463,16 +2227,16 @@ tab_model(m_Fx)
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_Fx, breakpoint_se_Fx, 
-                     m_Fx, 
-                     force_clean,
-                     plot_age_Fx_bw,
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_Fx_final <- output[1]
-plot_Fx_final
+# output <- plot_final(breakpoint_Fx, breakpoint_se_Fx, 
+#                      m_Fx, 
+#                      force_clean,
+#                      plot_age_Fx_bw,
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_Fx_final <- output[1]
+# plot_Fx_final
 
 ```
 #### max Fy / bw - 33.8
@@ -2519,14 +2283,14 @@ anova_Fy <- Anova(m_Fy, type =3, test.statistic = "F") %>% as.data.frame() %>%
 
 anova_Fy
 
-linearHypothesis(m_Fy, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(m_Fy, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(m_Fy, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(m_Fy, "Age + hinge"))
-#after slope
-print(deltaMethod(m_Fy, "Age"))
+# linearHypothesis(m_Fy, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(m_Fy, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(m_Fy, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(m_Fy, "Age + hinge"))
+# #after slope
+# print(deltaMethod(m_Fy, "Age"))
 
 ```
 ##### plot
@@ -2534,18 +2298,18 @@ print(deltaMethod(m_Fy, "Age"))
 
 
 
-output <- plot_final2(breakpoint_Fy, breakpoint_se_Fy, 
-                     m_Fy, 
-                     force_clean,
-                     plot_age_Fy_bw,
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     ) 
-
-
-plot_Fy_final <- output[1]
-plot_Fy_final
+# output <- plot_final2(breakpoint_Fy, breakpoint_se_Fy, 
+#                      m_Fy, 
+#                      force_clean,
+#                      plot_age_Fy_bw,
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      ) 
+# 
+# 
+# plot_Fy_final <- output[1]
+# plot_Fy_final
 
 ```
 #### max Fz / bw (vertical force, Fx in data)
@@ -2592,29 +2356,29 @@ anova_Fz <- Anova(m_Fz, type =3, test.statistic = "F") %>% as.data.frame() %>%
 
 anova_Fz
 
-linearHypothesis(m_Fz, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(m_Fz, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(m_Fz, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(m_Fz, "Age + hinge"))
-#after slope
-print(deltaMethod(m_Fz, "Age"))
+# linearHypothesis(m_Fz, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(m_Fz, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(m_Fz, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(m_Fz, "Age + hinge"))
+# #after slope
+# print(deltaMethod(m_Fz, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_Fz, breakpoint_se_Fz, 
-                     m_Fz, 
-                     force_clean,
-                     plot_age_Fz_bw,
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "F"
-                     )
-plot_Fz_final <- output[1]
-plot_Fz_final
+# output <- plot_final(breakpoint_Fz, breakpoint_se_Fz, 
+#                      m_Fz, 
+#                      force_clean,
+#                      plot_age_Fz_bw,
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "F"
+#                      )
+# plot_Fz_final <- output[1]
+# plot_Fz_final
 
 ```
 #### max Ftot /bw - 37.1
@@ -2657,37 +2421,37 @@ plot_ranef(m_Ftot)
 model <- m_Ftot
 
 #before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
 
 anova_Ftot <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_Ftot
 
-tab_model(model)
+# tab_model(model)
 
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_Ftot, breakpoint_se_Ftot, 
-                     m_Ftot, 
-                     force_data,
-                     plot_raw_Ftot,
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_Ftot_final <- output[1]
-plot_Ftot_final
+# output <- plot_final(breakpoint_Ftot, breakpoint_se_Ftot, 
+#                      m_Ftot, 
+#                      force_data,
+#                      plot_raw_Ftot,
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_Ftot_final <- output[1]
+# plot_Ftot_final
 
 ```
 
@@ -2736,117 +2500,117 @@ anova_angle <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %
 
 anova_angle
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 ```
 ##### plot
 ```{r}
 
-output_M <- plot_final(breakpoint_angle, breakpoint_se_angle, 
-                     m_angle, 
-                     force_clean,
-                     plot_age_angle,
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-output_F <- plot_final(breakpoint_angle, breakpoint_se_angle, 
-                     m_angle, 
-                     force_clean,
-                     plot_age_angle,
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "F"
-                     )
-
-
-plot_angle_M <- output_M[1]
-plot_angle_F <- output_F[1]
-plot_angle_M
-plot_angle_F
+# output_M <- plot_final(breakpoint_angle, breakpoint_se_angle, 
+#                      m_angle, 
+#                      force_clean,
+#                      plot_age_angle,
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# output_F <- plot_final(breakpoint_angle, breakpoint_se_angle, 
+#                      m_angle, 
+#                      force_clean,
+#                      plot_age_angle,
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "F"
+#                      )
+# 
+# 
+# plot_angle_M <- output_M[1]
+# plot_angle_F <- output_F[1]
+# plot_angle_M
+# plot_angle_F
 ```
 ##### plot with brood & Sex
 - salmon (F) and blue (M) are in the same brood and green (M) in a different brood. 
 ```{r}
 
-# 1) Hinge coding
-force_data$hinge <- pmin(force_data$Age - breakpoint_angle, 0)
-
-# 2) Age sequence
-age_seq <- seq(min(force_data$Age, na.rm = TRUE), max(force_data$Age, na.rm = TRUE), by = 1)
-
-# 4) Base newdat
-newdat_F_wpbr <- data.frame(
-    Age = age_seq,
-    Sex = "F",
-    Brood = "WhitePinkR-BlueR",
-    hinge = pmin(age_seq - breakpoint_angle, 0)
-  )
-
-newdat_M_wpbr <- data.frame(
-    Age = age_seq,
-    Sex = "M",
-    Brood = "WhitePinkR-BlueR",
-    hinge = pmin(age_seq - breakpoint_angle, 0)
-  )
-
-newdat_M_Box11 <- data.frame(
-  Age = age_seq, 
-  Sex = "M",
-  Brood = "Box11",
-  hinge = pmin(age_seq - breakpoint_angle, 0)
-)
-
-# 6) Predict (population-level)
-newdat_F_wpbr$pred <- predict(m_angle, newdat_F_wpbr, re.form = NA)
-newdat_M_wpbr$pred <- predict(m_angle, newdat_M_wpbr, re.form = NA)
-newdat_M_Box11$pred <- predict(m_angle, newdat_M_Box11, re.form = NA)
-
-
-# 7) Compose plot
-yr <- ggplot_build(plot_age_angle)$layout$panel_params[[1]]$y.range
-y_top <- max(yr)
-
-p <- plot_age_angle +
-    # prediction line no.1 
-    ggplot2::geom_line(
-      data = newdat_F_wpbr,
-      ggplot2::aes(x = Age, y = pred),
-      color = "#E08D79", size = 1.5, inherit.aes = FALSE
-    ) +
-  
-   # prediction line no.2 
-    ggplot2::geom_line(
-      data = newdat_M_wpbr,
-      ggplot2::aes(x = Age, y = pred),
-      color = "#1f77b4", size = 1.5, inherit.aes = FALSE
-    ) +
-   # prediction line no. 3
-    ggplot2::geom_line(
-      data = newdat_M_Box11,
-      ggplot2::aes(x = Age, y = pred),
-      color = "#4D9078", size = 1.5, inherit.aes = FALSE
-    ) +
-  
-    ggplot2::geom_vline(xintercept = breakpoint_angle, linetype = "dashed", color = "red") +
-    ggplot2::annotate(
-        "segment",
-        x = breakpoint_angle - breakpoint_se_angle,
-        xend = breakpoint_angle + breakpoint_se_angle,
-        y    = y_top,
-        yend = y_top,
-        color = "#E2AFDE",
-        linewidth = 3,
-        alpha = 0.7) +
-    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint_angle, breakpoint_se_angle))
-  
-p
+# # 1) Hinge coding
+# force_data$hinge <- pmin(force_data$Age - breakpoint_angle, 0)
+# 
+# # 2) Age sequence
+# age_seq <- seq(min(force_data$Age, na.rm = TRUE), max(force_data$Age, na.rm = TRUE), by = 1)
+# 
+# # 4) Base newdat
+# newdat_F_wpbr <- data.frame(
+#     Age = age_seq,
+#     Sex = "F",
+#     Brood = "WhitePinkR-BlueR",
+#     hinge = pmin(age_seq - breakpoint_angle, 0)
+#   )
+# 
+# newdat_M_wpbr <- data.frame(
+#     Age = age_seq,
+#     Sex = "M",
+#     Brood = "WhitePinkR-BlueR",
+#     hinge = pmin(age_seq - breakpoint_angle, 0)
+#   )
+# 
+# newdat_M_Box11 <- data.frame(
+#   Age = age_seq, 
+#   Sex = "M",
+#   Brood = "Box11",
+#   hinge = pmin(age_seq - breakpoint_angle, 0)
+# )
+# 
+# # 6) Predict (population-level)
+# newdat_F_wpbr$pred <- predict(m_angle, newdat_F_wpbr, re.form = NA)
+# newdat_M_wpbr$pred <- predict(m_angle, newdat_M_wpbr, re.form = NA)
+# newdat_M_Box11$pred <- predict(m_angle, newdat_M_Box11, re.form = NA)
+# 
+# 
+# # 7) Compose plot
+# yr <- ggplot_build(plot_age_angle)$layout$panel_params[[1]]$y.range
+# y_top <- max(yr)
+# 
+# p <- plot_age_angle +
+#     # prediction line no.1 
+#     ggplot2::geom_line(
+#       data = newdat_F_wpbr,
+#       ggplot2::aes(x = Age, y = pred),
+#       color = "#E08D79", size = 1.5, inherit.aes = FALSE
+#     ) +
+#   
+#    # prediction line no.2 
+#     ggplot2::geom_line(
+#       data = newdat_M_wpbr,
+#       ggplot2::aes(x = Age, y = pred),
+#       color = "#1f77b4", size = 1.5, inherit.aes = FALSE
+#     ) +
+#    # prediction line no. 3
+#     ggplot2::geom_line(
+#       data = newdat_M_Box11,
+#       ggplot2::aes(x = Age, y = pred),
+#       color = "#4D9078", size = 1.5, inherit.aes = FALSE
+#     ) +
+#   
+#     ggplot2::geom_vline(xintercept = breakpoint_angle, linetype = "dashed", color = "red") +
+#     ggplot2::annotate(
+#         "segment",
+#         x = breakpoint_angle - breakpoint_se_angle,
+#         xend = breakpoint_angle + breakpoint_se_angle,
+#         y    = y_top,
+#         yend = y_top,
+#         color = "#E2AFDE",
+#         linewidth = 3,
+#         alpha = 0.7) +
+#     ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint_angle, breakpoint_se_angle))
+#   
+# p
 
 ```
 
@@ -2896,14 +2660,14 @@ anova_impulse <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame()
 
 anova_impulse
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 
 
@@ -2912,16 +2676,16 @@ print(deltaMethod(model, "Age"))
 ##### plot
 ```{r}
 
-output <- plot_final3(breakpoint_impulse, breakpoint_se_impulse, 
-                     m_impulse, 
-                     force_clean,
-                     plot_age_impulse,
-                     include_brood = TRUE,
-                     brood_level = "Box3",
-                     sex = "M"
-                     )
-plot_impulse_final <- output[1]
-plot_impulse_final
+# output <- plot_final3(breakpoint_impulse, breakpoint_se_impulse, 
+#                      m_impulse, 
+#                      force_clean,
+#                      plot_age_impulse,
+#                      include_brood = TRUE,
+#                      brood_level = "Box3",
+#                      sex = "M"
+#                      )
+# plot_impulse_final <- output[1]
+# plot_impulse_final
 
 
 ```
@@ -2976,36 +2740,36 @@ plot_ranef(m_left_impulse)
 
 model <- m_left_impulse
 
-tab_model(model)
+#tab_model(model)
 anova_left_impulse <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_left_impulse
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_left_impulse, breakpoint_se_left_impulse, 
-                     m_left_impulse, 
-                     force_clean,
-                     plot_left_impulse,
-                     include_brood = TRUE,
-                     brood_level = "Box10",
-                     sex = "M"
-                     )
-plot_left_impulse_final <- output[1]
-plot_left_impulse_final
+# output <- plot_final(breakpoint_left_impulse, breakpoint_se_left_impulse, 
+#                      m_left_impulse, 
+#                      force_clean,
+#                      plot_left_impulse,
+#                      include_brood = TRUE,
+#                      brood_level = "Box10",
+#                      sex = "M"
+#                      )
+# plot_left_impulse_final <- output[1]
+# plot_left_impulse_final
 
 
 ```
@@ -3055,34 +2819,34 @@ plot_ranef(model)
 
 model <- m_right_impulse
 
-tab_model(model)
+#tab_model(model)
 anova_right_impulse <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_right_impulse
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_right_impulse, breakpoint_se_right_impulse, 
-                     m_right_impulse, 
-                     force_clean,
-                     plot_right_impulse,
-                     include_brood = TRUE,
-                     brood_level = "Box11",
-                     sex = "M"
-                     )
-plot_right_impulse_final <- output[1]
-plot_right_impulse_final
+# output <- plot_final(breakpoint_right_impulse, breakpoint_se_right_impulse, 
+#                      m_right_impulse, 
+#                      force_clean,
+#                      plot_right_impulse,
+#                      include_brood = TRUE,
+#                      brood_level = "Box11",
+#                      sex = "M"
+#                      )
+# plot_right_impulse_final <- output[1]
+# plot_right_impulse_final
 
 
 ```
@@ -3139,35 +2903,35 @@ plot_ranef(model)
 
 model <- m_impulse_ratio
 
-tab_model(model)
+#tab_model(model)
 anova_impulse_ratio <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_impulse_ratio # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
-                     m_impulse_ratio, # CHANGE HERE
-                     force_clean, # CHANGE HERE
-                     plot_age_impulse_ratio, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box3",
-                     sex = "M"
-                     )
-plot_impulse_ratio_final <- output[1] #CHANGE HERE
-plot_impulse_ratio_final # CHANGE HERE
+# output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
+#                      m_impulse_ratio, # CHANGE HERE
+#                      force_clean, # CHANGE HERE
+#                      plot_age_impulse_ratio, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box3",
+#                      sex = "M"
+#                      )
+# plot_impulse_ratio_final <- output[1] #CHANGE HERE
+# plot_impulse_ratio_final # CHANGE HERE
 
 
 ```
@@ -3222,35 +2986,35 @@ plot_ranef(model)
 
 model <- m_duration
 
-tab_model(model)
+#tab_model(model)
 anova_duration <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_duration
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_duration, breakpoint_se_duration, 
-                     m_duration, 
-                     force_clean,
-                     plot_age_duration,
-                     include_brood = TRUE,
-                     brood_level = "orangeR-pinkR",
-                     sex = "M"
-                     )
-plot_duration_final <- output[1]
-plot_duration_final
+# output <- plot_final(breakpoint_duration, breakpoint_se_duration, 
+#                      m_duration, 
+#                      force_clean,
+#                      plot_age_duration,
+#                      include_brood = TRUE,
+#                      brood_level = "orangeR-pinkR",
+#                      sex = "M"
+#                      )
+# plot_duration_final <- output[1]
+# plot_duration_final
 
 ```
 
@@ -3304,35 +3068,35 @@ plot_ranef(model)
 
 model <- m_left_duration
 
-tab_model(model)
+#tab_model(model)
 anova_left_duration <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_left_duration # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_left_duration, breakpoint_se_left_duration, #CHANGE HERE
-                     m_left_duration, # CHANGE HERE
-                     force_clean,
-                     plot_left_duration, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box11",
-                     sex = "M"
-                     )
-plot_left_duration_final <- output[1] #CHANGE HERE
-plot_left_duration_final # CHANGE HERE
+# output <- plot_final(breakpoint_left_duration, breakpoint_se_left_duration, #CHANGE HERE
+#                      m_left_duration, # CHANGE HERE
+#                      force_clean,
+#                      plot_left_duration, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box11",
+#                      sex = "M"
+#                      )
+# plot_left_duration_final <- output[1] #CHANGE HERE
+# plot_left_duration_final # CHANGE HERE
 
 ```
 #### right duration -33.1
@@ -3387,35 +3151,35 @@ plot_ranef(model)
 ```{r}
 model <- m_right_duration
 
-tab_model(model)
+#tab_model(model)
 anova_right_duration <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_right_duration # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 
 ##### plot
 ```{r}
-output <- plot_final(breakpoint_right_duration, breakpoint_se_right_duration, #CHANGE HERE
-                     m_right_duration, # CHANGE HERE
-                     force_clean,
-                     plot_right_duration, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_right_duration_final <- output[1] #CHANGE HERE
-plot_right_duration_final # CHANGE HERE
+# output <- plot_final(breakpoint_right_duration, breakpoint_se_right_duration, #CHANGE HERE
+#                      m_right_duration, # CHANGE HERE
+#                      force_clean,
+#                      plot_right_duration, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_right_duration_final <- output[1] #CHANGE HERE
+# plot_right_duration_final # CHANGE HERE
 
 ```
 
@@ -3476,35 +3240,35 @@ plot_ranef(model)
 
 model <- m_vz
 
-tab_model(model)
+#tab_model(model)
 anova_vz <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_vz # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_vz, breakpoint_se_vz, #CHANGE HERE
-                     m_vz, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_vz_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_vz_final <- output[1] #CHANGE HERE
-plot_vz_final # CHANGE HERE
+# output <- plot_final(breakpoint_vz, breakpoint_se_vz, #CHANGE HERE
+#                      m_vz, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_vz_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_vz_final <- output[1] #CHANGE HERE
+# plot_vz_final # CHANGE HERE
 
 
 ```
@@ -3561,35 +3325,35 @@ plot_ranef(model)
 
 model <- m_vy
 
-tab_model(model)
+#tab_model(model)
 anova_vy <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_vy # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_vy, breakpoint_se_vy, #CHANGE HERE
-                     m_vy, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_vy_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_vy_final <- output[1] #CHANGE HERE
-plot_vy_final # CHANGE HERE
+# output <- plot_final(breakpoint_vy, breakpoint_se_vy, #CHANGE HERE
+#                      m_vy, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_vy_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_vy_final <- output[1] #CHANGE HERE
+# plot_vy_final # CHANGE HERE
 
 
 ```
@@ -3646,35 +3410,35 @@ plot_ranef(model)
 
 model <- m_vx
 
-tab_model(model)
+#tab_model(model)
 anova_vx <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_vx # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_vx, breakpoint_se_vx, #CHANGE HERE
-                     m_vx, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_vx_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_vx_final <- output[1] #CHANGE HERE
-plot_vx_final # CHANGE HERE
+# output <- plot_final(breakpoint_vx, breakpoint_se_vx, #CHANGE HERE
+#                      m_vx, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_vx_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_vx_final <- output[1] #CHANGE HERE
+# plot_vx_final # CHANGE HERE
 
 
 ```
@@ -3731,35 +3495,35 @@ plot_ranef(model)
 
 model <- m_accx
 
-tab_model(model)
+#tab_model(model)
 anova_accx <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_vx # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_accx, breakpoint_se_accx, #CHANGE HERE
-                     m_accx, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_accx_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_accx_final <- output[1] #CHANGE HERE
-plot_accx_final # CHANGE HERE
+# output <- plot_final(breakpoint_accx, breakpoint_se_accx, #CHANGE HERE
+#                      m_accx, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_accx_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_accx_final <- output[1] #CHANGE HERE
+# plot_accx_final # CHANGE HERE
 
 
 ```
@@ -3817,35 +3581,35 @@ plot_ranef(model)
 
 model <- m_accy
 
-tab_model(model)
+#tab_model(model)
 anova_accy <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_accy # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_accy, breakpoint_se_accy, #CHANGE HERE
-                     m_accy, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_accy_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_accy_final <- output[1] #CHANGE HERE
-plot_accy_final # CHANGE HERE
+# output <- plot_final(breakpoint_accy, breakpoint_se_accy, #CHANGE HERE
+#                      m_accy, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_accy_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_accy_final <- output[1] #CHANGE HERE
+# plot_accy_final # CHANGE HERE
 
 
 ```
@@ -3902,35 +3666,35 @@ plot_ranef(model)
 
 model <- m_accz
 
-tab_model(model)
+#tab_model(model)
 anova_accz <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_accz# CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_accz, breakpoint_se_accz, #CHANGE HERE
-                     m_accz, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_accz_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_accz_final <- output[1] #CHANGE HERE
-plot_accz_final # CHANGE HERE
+# output <- plot_final(breakpoint_accz, breakpoint_se_accz, #CHANGE HERE
+#                      m_accz, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_accz_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_accz_final <- output[1] #CHANGE HERE
+# plot_accz_final # CHANGE HERE
 
 
 ```
@@ -3987,35 +3751,35 @@ plot_ranef(model)
 
 model <- m_tacc
 
-tab_model(model)
+#tab_model(model)
 anova_tacc <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_tacc # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_tacc, breakpoint_se_tacc, #CHANGE HERE
-                     m_tacc, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_tacc_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_tacc_final <- output[1] #CHANGE HERE
-plot_tacc_final # CHANGE HERE
+# output <- plot_final(breakpoint_tacc, breakpoint_se_tacc, #CHANGE HERE
+#                      m_tacc, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_tacc_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_tacc_final <- output[1] #CHANGE HERE
+# plot_tacc_final # CHANGE HERE
 
 
 ```
@@ -4073,35 +3837,35 @@ plot_ranef(model)
 
 model <- m_vres
 
-tab_model(model)
+#tab_model(model)
 anova_vres <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_vres # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_vres, breakpoint_se_vres, #CHANGE HERE
-                     m_vres, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_vres_mean, # CHANGE HERE
-                     include_brood = FALSE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_vres_final <- output[1] #CHANGE HERE
-plot_vres_final # CHANGE HERE
+# output <- plot_final(breakpoint_vres, breakpoint_se_vres, #CHANGE HERE
+#                      m_vres, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_vres_mean, # CHANGE HERE
+#                      include_brood = FALSE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_vres_final <- output[1] #CHANGE HERE
+# plot_vres_final # CHANGE HERE
 
 
 ```
@@ -4159,35 +3923,35 @@ plot_ranef(model)
 
 model <- m_tr
 
-tab_model(model)
+#tab_model(model)
 anova_tr <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_tr # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_tr, breakpoint_se_tr, #CHANGE HERE
-                     m_tr, # CHANGE HERE
-                     flights_tort, # CHANGE HERE
-                     plot_tr_mean, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box3",
-                     sex = "M"
-                     )
-plot_tr_final <- output[1] #CHANGE HERE
-plot_tr_final # CHANGE HERE
+# output <- plot_final(breakpoint_tr, breakpoint_se_tr, #CHANGE HERE
+#                      m_tr, # CHANGE HERE
+#                      flights_tort, # CHANGE HERE
+#                      plot_tr_mean, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box3",
+#                      sex = "M"
+#                      )
+# plot_tr_final <- output[1] #CHANGE HERE
+# plot_tr_final # CHANGE HERE
 
 
 ```
@@ -4266,35 +4030,35 @@ plot_ranef(model)
 
 model <- m_centri
 
-tab_model(model)
+#tab_model(model)
 anova_centri <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_centri # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final2(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
-                     m_centri, # CHANGE HERE
-                     flights_speed, # CHANGE HERE
-                     plot_ctracc_mean, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box11",
-                     sex = "M"
-                     )
-plot_centri_final <- output[1] #CHANGE HERE
-plot_centri_final # CHANGE HERE
+# output <- plot_final2(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
+#                      m_centri, # CHANGE HERE
+#                      flights_speed, # CHANGE HERE
+#                      plot_ctracc_mean, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box11",
+#                      sex = "M"
+#                      )
+# plot_centri_final <- output[1] #CHANGE HERE
+# plot_centri_final # CHANGE HERE
 
 
 ```
@@ -4351,35 +4115,35 @@ plot_ranef(model)
 
 model <- m_wb
 
-tab_model(model)
+#tab_model(model)
 anova_wb <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_wb # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
-                     m_wb, # CHANGE HERE
-                     flights_wing, # CHANGE HERE
-                     plot_wb_mean, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_wb_final <- output[1] #CHANGE HERE
-plot_wb_final # CHANGE HERE
+# output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
+#                      m_wb, # CHANGE HERE
+#                      flights_wing, # CHANGE HERE
+#                      plot_wb_mean, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_wb_final <- output[1] #CHANGE HERE
+# plot_wb_final # CHANGE HERE
 
 
 ```
@@ -4436,35 +4200,35 @@ plot_ranef(model)
 
 model <- m_downstroke
 
-tab_model(model)
+#tab_model(model)
 anova_downstroke <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_downstroke # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_downstroke, breakpoint_se_downstroke, #CHANGE HERE
-                     m_downstroke, # CHANGE HERE
-                     flights_wing, # CHANGE HERE
-                     plot_downstroke_mm, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_downstroke_final <- output[1] #CHANGE HERE
-plot_downstroke_final # CHANGE HERE
+# output <- plot_final(breakpoint_downstroke, breakpoint_se_downstroke, #CHANGE HERE
+#                      m_downstroke, # CHANGE HERE
+#                      flights_wing, # CHANGE HERE
+#                      plot_downstroke_mm, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_downstroke_final <- output[1] #CHANGE HERE
+# plot_downstroke_final # CHANGE HERE
 
 
 ```
@@ -4521,35 +4285,35 @@ plot_ranef(model)
 
 model <- m_upstroke
 
-tab_model(model)
+#tab_model(model)
 anova_upstroke <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
 anova_upstroke # CHANGE THIS!!
 
-linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-linearHypothesis(model, "Age = Age+hinge", test = "F")
-
-#before slope
-print(deltaMethod(model, "Age + hinge"))
-#after slope
-print(deltaMethod(model, "Age"))
+# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
+# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
+# linearHypothesis(model, "Age = Age+hinge", test = "F")
+# 
+# #before slope
+# print(deltaMethod(model, "Age + hinge"))
+# #after slope
+# print(deltaMethod(model, "Age"))
 
 ```
 ##### plot
 ```{r}
 
-output <- plot_final(breakpoint_upstroke, breakpoint_se_upstroke, #CHANGE HERE
-                     m_upstroke, # CHANGE HERE
-                     flights_wing, # CHANGE HERE
-                     plot_upstroke_mm, # CHANGE HERE
-                     include_brood = TRUE,
-                     brood_level = "Box5",
-                     sex = "M"
-                     )
-plot_upstroke_final <- output[1] #CHANGE HERE
-plot_upstroke_final # CHANGE HERE
+# output <- plot_final(breakpoint_upstroke, breakpoint_se_upstroke, #CHANGE HERE
+#                      m_upstroke, # CHANGE HERE
+#                      flights_wing, # CHANGE HERE
+#                      plot_upstroke_mm, # CHANGE HERE
+#                      include_brood = TRUE,
+#                      brood_level = "Box5",
+#                      sex = "M"
+#                      )
+# plot_upstroke_final <- output[1] #CHANGE HERE
+# plot_upstroke_final # CHANGE HERE
 
 
 ```
@@ -4738,6 +4502,82 @@ out_all <- do.call(rbind, out_all)
 kable(out_all, escape = FALSE)
 
 ```
+### functions for plots
+```{r}
+
+
+# ---- dependencies
+#library(ggplot2)
+
+sanitize_filename <- function(x) {
+  x <- gsub("[^A-Za-z0-9]+", "_", x)
+  x <- gsub("^_+|_+$", "", x)
+  tolower(x)
+}
+
+fmt_term_plain <- function(F, Df, Df_res, p, digits_F = 1, digits_Df = 1, p_thresh = 0.001) {
+  if (any(is.na(c(F, Df, Df_res, p)))) return("F = NA, p = NA")
+  F_str   <- format(round(F, digits_F), nsmall = digits_F, trim = TRUE)
+  Df_str  <- format(Df, trim = TRUE)
+  Res_str <- format(round(Df_res, digits_Df), nsmall = digits_Df, trim = TRUE)
+
+  p_str <- if (is.na(p)) {
+    "p = NA"
+  } else if (p < p_thresh) {
+    "p < 0.001"
+  } else {
+    paste0("p = ", format(round(p, 2), nsmall = 2))
+  }
+
+  sig <- if (!is.na(p) && p < 0.05) " (p < 0.05)" else ""
+  sprintf("F[%s, %s] = %s, %s%s", Df_str, Res_str, F_str, p_str, sig)
+}
+
+make_model_plot_plain <- function(
+  mod, label, breakpoint, breakpoint_se,
+  before_string, after_string,
+  before_term_txt, after_term_txt, same_term_txt
+) {
+  df <- model.frame(mod)
+  y_name <- all.vars(formula(mod))[1]
+
+  base_plot <- ggplot(df, aes(x = Age, y = .data[[y_name]])) +
+    geom_point(alpha = 0.6) +
+    theme_bw() +
+    labs(title = label, x = "Age", y = label)
+
+  p <- plot_breakpoint(breakpoint, breakpoint_se, base_plot)
+
+  cap <- paste0(
+    "Slope summaries: before = ", before_string, "; after = ", after_string, "\n",
+    "Tests: before = 0? ", before_term_txt, "; ",
+    "after = 0? ",  after_term_txt, "; ",
+    "before = after? ", same_term_txt
+  )
+
+  p + labs(caption = cap) + theme(plot.caption = element_text(size = 9))
+}
+
+save_model_plot_plain <- function(
+  mod, label, breakpoint, breakpoint_se,
+  before_string, after_string,
+  before_term_txt, after_term_txt, same_term_txt,
+  out_dir = "plots", width = 7, height = 5, dpi = 300
+) {
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  p <- make_model_plot_plain(
+    mod, label, breakpoint, breakpoint_se,
+    before_string, after_string,
+    before_term_txt, after_term_txt, same_term_txt
+  )
+  fn <- file.path(out_dir, paste0("plot_model_", sanitize_filename(label), ".png"))
+  ggplot2::ggsave(fn, plot = p, width = width, height = height, dpi = dpi)
+  fn
+}
+
+
+
+```
 ### TEST OUTPUT
 ```{r}
 
@@ -4776,7 +4616,49 @@ lmer_mods <- list(
   m_wb, m_downstroke, m_upstroke
   )          
 
+# breakpoints
+breakpoints <- c(
+  # morphology
+  breakpoint_sw, breakpoint_ws, breakpoint_wa, breakpoint_wl,
+  
+  # leg force & impulse
+  breakpoint_Fx, breakpoint_Fy, breakpoint_Fz, breakpoint_Ftot,
+  breakpoint_angle, breakpoint_impulse, breakpoint_left_impulse,
+  breakpoint_right_impulse, breakpoint_impulse_ratio, breakpoint_duration, breakpoint_left_duration, breakpoint_right_duration,
+  
+  # flight speed
+  breakpoint_vx, breakpoint_vy, breakpoint_vz, breakpoint_accx, breakpoint_accy, breakpoint_accz, breakpoint_vres, breakpoint_tacc,
+  
+  # tortuosity
+  breakpoint_tr, breakpoint_centri, 
+  
+  # wings
+  breakpoint_wb, breakpoint_downstroke, breakpoint_upstroke)
+  
+breakpoints_se <- c(
+  # morphology
+  breakpoint_se_sw, breakpoint_se_ws, breakpoint_se_wa, breakpoint_se_wl,
+  
+  # leg force & impulse
+  breakpoint_se_Fx, breakpoint_se_Fy, breakpoint_se_Fz, breakpoint_se_Ftot,
+  breakpoint_se_angle, breakpoint_se_impulse, breakpoint_se_left_impulse,
+  breakpoint_se_right_impulse, breakpoint_se_impulse_ratio, breakpoint_se_duration, breakpoint_se_left_duration, breakpoint_se_right_duration,
+  
+  # flight speed
+  breakpoint_vx, breakpoint_vy, breakpoint_vz, breakpoint_accx, breakpoint_accy, breakpoint_accz, breakpoint_vres, breakpoint_tacc,
+  
+  # tortuosity
+  breakpoint_tr, breakpoint_centri, 
+  
+  # wings
+  breakpoint_wb, breakpoint_downstroke, breakpoint_upstroke)
+
+  
+breakpoints_se <- c()
+
 out_all <- vector("list", length(lmer_mods))
+
+plot_files <- vector("character", length(lmer_mods))
 
 
 for (i in seq_along(lmer_mods)){
@@ -4840,6 +4722,15 @@ for (i in seq_along(lmer_mods)){
     after_slope_upper)
   
   
+  # --- NEW: markdown-formatted test strings with bold p<0.05 ---
+ 
+  before_term_txt <- fmt_term_plain(before_slope_F, before_slope_Df, before_slope_ResDf, before_slope_P)
+  after_term_txt  <- fmt_term_plain(after_slope_F,  after_slope_Df,  after_slope_ResDf,  after_slope_P)
+  same_term_txt   <- fmt_term_plain(same_slope_F,   same_slope_Df,   same_slope_ResDf,   same_slope_P)
+
+
+  
+  
   # test summary variables
 
   test_cols <- data.frame(
@@ -4857,14 +4748,42 @@ for (i in seq_along(lmer_mods)){
   out_row <- cbind(Variables = labels[i], test_cols)
   
   out_all[[i]] <- out_row
+  
+  
+  bp <- breakpoints[i]      # <-- supply your per-model breakpoint
+  bp_se <- breakpoints_se[i]   # <-- supply your per-model breakpoint SE
+
+  plot_files[i] <- save_model_plot_plain(
+    mod            = mod,
+    label          = labels[i],
+    breakpoint     = bp,
+    breakpoint_se  = bp_se,
+    before_string  = before_string,
+    after_string   = after_string,
+    before_term_txt = before_term_txt,
+    after_term_txt  = after_term_txt,
+    same_term_txt   = same_term_txt,
+    out_dir        = "plots"    # change if you prefer a different folder
+  )
 }
+
 
 # Combine rows from all models into one data frame
 out_all_test <- do.call(rbind, out_all)
 
-kable(out_all_test, escape = FALSE)
+knitr::kable(out_all_test, escape = FALSE)
+
+plot_files[1]
+```
+### function model_plot
+- raw data, breakpoint (mean and se), predicted lines from linear Hypothesis
+```{r}
+
+
+
 ```
 ### GRAPH OUTPUT
+
 #### morphology
 ```{r}
 library(patchwork)
@@ -4912,7 +4831,7 @@ wavy_plots
 
 
 
-### DEEP DIVE
+### sample size errors
 ```{r}
 
 flights_wb_na <- flights_wing %>% filter(is.na(wingbeat_frequency))
@@ -5007,19 +4926,19 @@ welch_pairs_from_summary <- function(means, ns, ses = NULL, sds = NULL,
 
 
 ```
-
-
+### pairwise test table 
+#### all variables vs. all variables
 ```{r}
 # Suppose you have 8 variables:
 var_names <- c("mass", "wingarea", "wingspan", "wing loading",
                
-               "Fx", "Fy", "Fz", "|F|", "angle",
+               "Fx", "Fy", "Fz", "F_mag", "angle",
                
                "impulse", "impulse ratio", "impulse duration",
                
                "left duration", "right duration", "left impulse", "right impulse",
                
-               "vx", "vy", "vz", "|v|", "atan", "accx", "accy", "accz",
+               "vx", "vy", "vz", "v_mag", "atan", "accx", "accy", "accz",
                
                "turn rate", "centri", "wingbeatf", "downstroke", "upstroke")
 
@@ -5061,6 +4980,172 @@ res$table
 # Symmetric matrix of p-values:
 
 ```
+#### per group
+```{r}
+groups <- c("morphology", "morphology", "morphology", "morphology", 
+            "leg force",  "leg force",  "leg force",  "leg force",  "leg force", 
+            "leg impulse", "leg impulse", "leg impulse", 
+            "leg impulse", "leg impulse", "leg impulse", "leg impulse",
+            "flight speed", "flight speed", "flight speed", "flight speed", 
+            "flight speed", "flight speed", "flight speed", "flight speed", 
+            "tortuosity", "tortuosity", "flight stability", "flight stability", "flight stability")
+
+df_groups <- data.frame("variable" = var_names, 
+                        "group" = groups, 
+                        "mean" = means, 
+                        "se" = ses, 
+                        "n" = ns)
+
+morphology <- subset(df_groups, group == "morphology")
+leg_force <- subset(df_groups, group == "leg force")
+leg_impulse <- subset(df_groups, group == "leg impulse")
+flight_speed <- subset(df_groups, group == "flight speed")
+tortuosity <- subset(df_groups, group == "tortuosity")
+flight_stability <- subset(df_groups, group == "flight stability")
+
+
+
+# If instead you have SDs, set sds=... and omit ses
+res_morphology <- welch_pairs_from_summary(means = morphology$mean, ns = morphology$n, ses = morphology$se, var_names = morphology$variable, adjust = "BH", conf_level = 0.95)
+
+res_force <- welch_pairs_from_summary(means = leg_force$mean, ns = leg_force$n, ses = leg_force$se, var_names = leg_force$variable, adjust = "BH", conf_level = 0.95)
+
+res_impulse <- welch_pairs_from_summary(means = leg_impulse$mean, ns = leg_impulse$n, ses = leg_impulse$se, var_names = leg_impulse$variable, adjust = "BH", conf_level = 0.95)
+
+res_speed <- welch_pairs_from_summary(means = flight_speed$mean, ns = flight_speed$n, ses = flight_speed$se, var_names = flight_speed$variable, adjust = "BH", conf_level = 0.95)
+
+res_tort <- welch_pairs_from_summary(means = tortuosity$mean, ns = tortuosity$n, ses = tortuosity$se, var_names = tortuosity$variable, adjust = "BH", conf_level = 0.95)
+
+res_stable <- welch_pairs_from_summary(means = flight_stability$mean, ns = flight_stability$n, ses = flight_stability$se, var_names = flight_stability$variable, adjust = "BH", conf_level = 0.95)
+# Tidy table:
+
+print(res_morphology)
+print(res_force)
+print(res_impulse)
+print(res_speed)
+print(res_tort)
+print(res_stable)
+```
+#### kable formatting
+##### function make_welch_kable()
+```{r}
+
+
+# ---- Packages ----
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# ---- Helper: format p_adj per your rules ----
+fmt_p <- function(p) {
+  ifelse(p < 0.001, 
+         "<0.001",
+         ifelse(p < 0.01, 
+                sprintf("%.3f", p), 
+                sprintf("%.2f", p)))
+}
+
+# ---- Helper: significance stars column ----
+sig_marks <- function(p) {
+  dplyr::case_when(
+    p < 0.001 ~ "***",
+    p >= 0.001 & p < 0.01 ~ "**",
+    p >= 0.01  & p < 0.05 ~ "*",
+    p >= 0.05  & p < 0.10 ~ "(*)",
+    TRUE ~ ""
+  )
+}
+
+# ---- Function to build kable from your Welch summary df ----
+# Expect columns: var1, var2, n1, n2, diff, ci_low, ci_high, t, df, p_adj
+make_welch_kable <- function(df, caption = "Welch’s two-sample t-tests (formatted)") {
+
+  out <- df %>%
+    dplyr::mutate(
+      # round t and df to 1 decimal
+      t_fmt  = sprintf("%.1f", t),
+      df_fmt = sprintf("%.1f", df),
+      # format p_adj per rules
+      p_fmt  = fmt_p(p_adj),
+      # significance marks
+      sig    = sig_marks(p_adj),
+      # difference and CI (optional rounding if you wish)
+      diff_fmt   = sprintf("%.2f", diff),
+      ci_low_fmt = sprintf("%.2f", ci_low),
+      ci_high_fmt= sprintf("%.2f", ci_high)
+    ) %>%
+    dplyr::transmute(
+      var1,
+      var2,
+      n1, n2,
+      diff = diff_fmt,
+      `95% CI` = paste0("[", ci_low_fmt, ", ", ci_high_fmt, "]"),
+      t  = t_fmt,
+      df = df_fmt,
+      p_adj = p_fmt,
+      sig
+    )
+
+
+  knitr::kable(out, align = c("l","l","r","r","r","l","r","r","r","c"),
+      caption = caption, booktabs = TRUE) %>%
+    kableExtra::kable_styling(full_width = FALSE)
+}
+
+# ---- Example usage ----
+# Suppose your results are in 'welch_df' (like the table you pasted):
+# welch_df <- data.frame(
+#   var1 = c("|F|","wingspan","Fz","|F|"),
+#   var2 = c("right impulse","|F|","right impulse","impulse"),
+#   n1   = c(975,184,975,975),
+#   n2   = c(975,975,975,975),
+#   diff = c(19.90878623,-17.2,54.70878623,16.1),
+#   ci_low = c(14.36656263,-22.41328468,37.24842738,10.88708427),
+#   ci_high= c(25.45100983,-11.98671532,72.16914508,21.31291573),
+#   t    = c(7.046366303,-6.473305394,6.148495812,6.059314932),
+#   df   = c(1475.546117,1140.834289,1017.568493,1222.290473),
+#   p_adj= c(1.14043335901699e-09,2.88479250681053e-08,1.51836411805496e-07,1.84498366145796e-07)
+# )
+
+# Render the formatted table:
+# make_welch_kable(welch_df)
+
+```
+##### morphology
+```{r}
+
+make_welch_kable(res_morphology$table)
+
+```
+##### leg force
+```{r}
+
+make_welch_kable(res_force$table)
+
+```
+##### leg impulse
+```{r}
+make_welch_kable(res_impulse$table)
+
+```
+##### flight speed
+```{r}
+make_welch_kable(res_speed$table)
+
+```
+##### tortuosity
+```{r}
+make_welch_kable(res_tort$table)
+
+```
+##### stability
+```{r}
+make_welch_kable(res_stable$table)
+
+```
+
+### p-value matrix
+- without wing loading and left duration
 ```{r}
 
 library(reshape2)
@@ -5068,6 +5153,8 @@ library(reshape2)
 # Example long data
 df <- as.data.frame(res$table) %>% 
   dplyr::select(var1, var2, p_adj) %>%
+  dplyr:: filter(!var1 %in% c("left duration", "wing loading")) %>%
+  dplyr:: filter(!var2 %in% c("left duration", "wing loading")) %>%
   mutate(p_adj = round(p_adj, 3))
 # (Optional) melt: here it just confirms the long structure
 long <- melt(df, id.vars = c("var1","var2"), measure.vars = "p_adj")
@@ -5079,7 +5166,7 @@ p_mat
 # A 0.10 0.25
 
 ```
-
+#### upper triangle
 ```{r}
 # p_mat: matrix produced by acast(var1 ~ var2)
 # 1) Fill the upper triangle from the lower triangle when the upper is NA
@@ -5094,7 +5181,7 @@ p_mat[upper_mask] <- ifelse(
 p_mat[lower.tri(p_mat, diag = TRUE)] <- NA
 
 ```
-### bold the values if it is more than 0.05>
+#### bold the values if it is more than 0.05>
 ```{r}
 library(knitr)
 library(kableExtra)
@@ -5110,37 +5197,283 @@ p_fmt[lower.tri(p_mat, diag = TRUE)] <- ""
 kable(p_fmt)
 
 ```
-### installing packages - orchaRd
+
+### NMDS
 ```{r}
 
-pacman::p_load(devtools, tidyverse, metafor, patchwork, R.rsp, emmeans)
 
-devtools::install_github("daniel1noble/orchaRd", force = TRUE)
+library(readxl)
+library(vegan)
+
+# 1) Read
+p <- as.data.frame(p_mat)
+
+# 2) Use first column as row names only if it’s non-numeric
+if (!is.numeric(p[[1]])) {
+  rownames(p) <- p[[1]]
+  p <- p[ , -1, drop = FALSE]
+}
+
+# 3) To matrix
+p <- as.matrix(p)
+mode(p) <- "numeric"  # coerce any characters to NA
+
+# 4) Mirror upper triangle to lower (if lower is empty/NA)
+#    Copy non-NA from the opposite triangle where NA
+p_lower_na <- is.na(p) & lower.tri(p)
+p[p_lower_na] <- t(p)[p_lower_na]
+
+p_upper_na <- is.na(p) & upper.tri(p)
+p[p_upper_na] <- t(p)[p_upper_na]
+
+# 5) Force symmetry and set diagonal p=1 (same breakpoints with self)
+p <- (p + t(p)) / 2
+diag(p) <- 1
+
+# 6) Drop variables (rows/cols) that still have NA
+keep <- rowSums(is.na(p)) == 0 & colSums(is.na(p)) == 0
+if (!all(keep)) {
+  p <- p[keep, keep, drop = FALSE]
+}
+
+# Final check
+if (any(is.na(p))) stop("NA values remain after symmetry fix; please inspect the input matrix.")
+
+# 7) Build dissimilarity: large p = strong association => small distance
+D <- 1 - p
+diag(D) <- 0
+
+# If all distances are zero (e.g., all p=1), NMDS cannot run
+if (!any(D[upper.tri(D)] > 0)) stop("All dissimilarities are zero; NMDS cannot be performed.")
+
+# 8) NMDS
+Ddist <- as.dist(D)
+nmds <- metaMDS(Ddist, k = 2, autotransform = FALSE, trace = FALSE)
+
+# 9) Plots (minimal)
+plot(nmds, type = "t")
+stressplot(nmds)
+
 
 ```
 
-# loading libraries 
-```{r cars}
-library(metafor)
-library(orchaRd)
-library(RColorBrewer)
+#### circle
+```{r}
+
+
+library(readr)
+library(dplyr)
 library(ggplot2)
+
+# 0) If you don't have 'coords' yet, create it from your nmds object:
+coords <- as.data.frame(vegan::scores(nmds, display = "sites"))
+
+# 1) Turn rownames into a 'variable' column so we can join groups
+coords <- coords %>%
+  tibble::rownames_to_column(var = "variable")
+
+# 2) Load the groups file (variable, group, mean, se, n ...)
+df_groups <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv", show_col_types = FALSE)  # has 'variable' and 'group' columns
+# Join groups to the NMDS coordinates (no label cleaning, matches as-is)
+df_groups_var <- df_groups %>% dplyr::select(variable, group)
+coord_g <- coords %>% left_join(df_groups_var, by = "variable")
+
+# 3) Small helper to make a circle as a data frame
+circle_df <- function(cx, cy, r, n = 200) {
+  t <- seq(0, 2*pi, length.out = n)
+  data.frame(x = cx + r*cos(t), y = cy + r*sin(t))
+}
+
+# 4) For each group, compute a circle centered at the group centroid.
+#    Radius = max distance from centroid to group members (times a small pad).
+pad <- 1.05
+circles <- coord_g %>%
+  group_by(group) %>%
+  filter(!is.na(group)) %>%
+  summarise(cx = mean(NMDS1), cy = mean(NMDS2), .groups = "drop") %>%
+  rowwise() %>%
+  do({
+    g <- .$group
+    cx <- .$cx; cy <- .$cy
+    dists <- coord_g %>% filter(group == g) %>%
+      transmute(d = sqrt((NMDS1 - cx)^2 + (NMDS2 - cy)^2))
+    r <- ifelse(nrow(dists) > 0, max(dists$d) * pad, 0)
+    cbind(group = g, circle_df(cx, cy, r))
+  }) %>%
+  ungroup()
+
+#ordering the labels
+order <- c("morphology", "leg impulse", "leg force",
+           "flight speed", "tortuosity", "flight stability")
+
+# Ensure factor order in BOTH data frames
+coord_g$group  <- factor(coord_g$group,  levels = order)
+circles$group  <- factor(circles$group,  levels = order)
+
+
+# 5) Plot: points + text + group circles
+nmds_plot <- ggplot(coord_g, aes(NMDS1, NMDS2)) +
+  # circles under the points
+  geom_path(data = circles, aes(x = x, y = y, color = group), inherit.aes = FALSE, linewidth = 0.9, alpha = 0.9) +
+  # group fill (optional, light translucent fill behind the circle)
+  # geom_polygon(data = circles, aes(x = x, y = y, fill = group), inherit.aes = FALSE, alpha = 0.08, color = NA) +
+  geom_point(aes(color = group), size = 2.5) +
+  ggrepel::geom_text_repel(aes(label = variable, color = group), size = 3, max.overlaps = Inf, box.padding = 0.2, min.segment.length = 0) +
+  coord_equal() +
+  theme_minimal(base_size = 11) +
+  labs(title = "NMDS with group circles", x = "NMDS1", y = "NMDS2", color = "Group", fill = "Group")
+
+
+nmds_plot
 ```
+#### ellipse and segment
+```{r}
+
+# --- Packages ---
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(vegan)
+
+# -----------------------------
+# 1) Build dissimilarities and NMDS (your original minimal pipeline)
+# -----------------------------
+
+# If p_mat is already in memory (square matrix of p-values), start here:
+p <- as.data.frame(p_mat)
+
+# Use first column as row names only if it’s non-numeric
+if (!is.numeric(p[[1]])) {
+  rownames(p) <- p[[1]]
+  p <- p[ , -1, drop = FALSE]
+}
+
+# To matrix; coerce to numeric
+p <- as.matrix(p)
+mode(p) <- "numeric"  # non-numeric entries become NA
+
+# Mirror upper/lower triangles to fill NA, then symmetrize; set diagonal p=1
+p_lower_na <- is.na(p) & lower.tri(p)
+p[p_lower_na] <- t(p)[p_lower_na]
+p_upper_na <- is.na(p) & upper.tri(p)
+p[p_upper_na] <- t(p)[p_upper_na]
+
+p <- (p + t(p)) / 2
+diag(p) <- 1
+
+# Drop any variables that still have NA
+keep <- rowSums(is.na(p)) == 0 & colSums(is.na(p)) == 0
+if (!all(keep)) p <- p[keep, keep, drop = FALSE]
+if (any(is.na(p))) stop("NA values remain after symmetry fix; please inspect the input matrix.")
+
+# Dissimilarity: large p = strong association => small distance
+D <- 1 - p
+diag(D) <- 0
+
+# Sanity: must have nonzero dissimilarities
+if (!any(D[upper.tri(D)] > 0)) stop("All dissimilarities are zero; NMDS cannot be performed.")
+
+# NMDS
+Ddist <- as.dist(D)
+set.seed(42)
+nmds <- metaMDS(Ddist, k = 2, autotransform = FALSE, trace = FALSE)
+
+# -----------------------------
+# 2) Prepare coordinates + join groups
+# -----------------------------
+coords <- as.data.frame(vegan::scores(nmds, display = "sites"))
+coords <- tibble::rownames_to_column(coords, var = "variable")
+
+# Load groups (no label cleaning; match as-is)
+df_groups <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv", show_col_types = FALSE)
+df_groups_var <- df_groups %>% dplyr::select(variable, group)
+
+coord_g <- coords %>% left_join(df_groups_var, by = "variable")
+
+# -----------------------------
+# 3) Fallback logic:
+#    - Ellipses for groups with >=3 points
+#    - Segments connecting the two points for groups with exactly 2 points
+# -----------------------------
+grp_n <- coord_g %>%
+  filter(!is.na(group)) %>%
+  count(group, name = "n_pts")
+
+have3 <- grp_n %>% filter(n_pts >= 3) %>% pull(group)
+seg_groups <- grp_n %>% filter(n_pts == 2) %>% pull(group)
+
+# Build segments (x1,y1 -> x2,y2) for two-point groups
+segments_df <- coord_g %>%
+  filter(group %in% seg_groups) %>%
+  group_by(group) %>%
+  summarise(
+    x1 = NMDS1[1], y1 = NMDS2[1],
+    x2 = NMDS1[2], y2 = NMDS2[2],
+    .groups = "drop"
+  )
+
+# -----------------------------
+# 4) Plot: ellipses (>=3), segments (==2), points & labels
+# -----------------------------
+nmds_plot <- ggplot(coord_g, aes(NMDS1, NMDS2)) +
+  # Ellipse outlines per group (95% normal-theory) — only for groups with >=3 points
+  stat_ellipse(
+    data = subset(coord_g, group %in% have3),
+    aes(group = group, color = group),
+    type = "norm", level = 0.68, linewidth = 0.9
+  ) +
+  # Fallback segments for groups with exactly 2 points
+  geom_segment(
+    data = segments_df,
+    aes(x = x1, y = y1, xend = x2, yend = y2, color = group),
+    inherit.aes = FALSE, linewidth = 1
+  ) +
+  # Points and labels (all groups)
+  geom_point(aes(color = group), size = 2.5) +
+  ggrepel::geom_text_repel(
+    aes(label = variable, color = group),
+    size = 3, max.overlaps = Inf,
+    box.padding = 0.2, min.segment.length = 0
+  ) +
+  coord_equal() +
+  theme_minimal(base_size = 11) +
+  labs(
+    title = "", #NMDS with group ellipses (fallback segments for 2-point groups)
+    x = "NMDS1", y = "NMDS2", color = "Group"
+  )
+
+# Print the plot
+#print(nmds_plot)
+nmds_plot
+# Save to file
+ggsave("nmds_group_ellipses.png", nmds_plot, width = 7.5, height = 6, dpi = 200)
 
 
 ```
-### group-wide comparison
-#### making a dataframe
+
+```{r}
+
+library(vegan)
+
+
+
+```
+
+
+
+# group-wide comparison
+## making a dataframe
 ```{r}
 var_names <- c("mass", "wingarea", "wingspan", "wing loading",
                
-               "Fx", "Fy", "Fz", "|F|", "angle",
+               "Fx", "Fy", "Fz", "F_mag", "angle",
                
                "impulse", "impulse ratio", "impulse duration",
                
                "left duration", "right duration", "left impulse", "right impulse",
                
-               "vx", "vy", "vz", "|v|", "atan", "accx", "accy", "accz",
+               "vx", "vy", "vz", "v_mag", "atan", "accx", "accy", "accz",
                
                "turn rate", "centri", "wingbeatf", "downstroke", "upstroke")
 
@@ -5190,44 +5523,408 @@ df_groups <- data.frame("variable" = var_names,
 
 
 ```
-#### metafor
+
+## dataset
+```{r}
+df_groups <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv")
+
+head(df_groups)
+
+```
+
+### all variables 
 ```{r}
 library(metafor)
+
+df_groups$group <- factor(df_groups$group)
+
 m <- rma.mv(
   yi = mean,
   V  = se^2,
-  mods = ~group,
+  mods = ~ 0 +group,
   method = "REML",# estimate each group’s breakpoint
   random = ~ 1 | variable, # account for differences among variables
   data = df_groups
 )
 
 summary(m)
+```
+#### group-pairwise comparison
+```{r}
+df_groups$group <- factor(df_groups$group)
+
+# Levels and number of groups
+lvls <- levels(df_groups$group)
+K <- length(lvls)
+
+# All pairwise indices
+pairs <- combn(K, 2)
+
+# Contrast rows: +1 for the first group, -1 for the second
+L <- t(apply(pairs, 2, function(idx) {
+  v <- numeric(K)
+  v[idx[1]] <-  1
+  v[idx[2]] <- -1
+  v
+}))
+
+rownames(L) <- paste(lvls[pairs[1, ]], "-", lvls[pairs[2, ]])
+
+# Wald tests for contrasts
+pw <- anova(m, L = L)  # works for rma.mv
+
+pw
+```
+#### plot
+```{r}
+
+# Extract group estimates and SEs
+b   <- coef(m)         # named by group
+Vb  <- vcov(m)
+se  <- sqrt(diag(Vb))
+
+# 95% CI (Wald, z)
+z    <- qnorm(0.975)
+df_est <- data.frame(
+  group = sub("^group", "", names(b)),  # remove "group" prefix if present
+  estimate = as.numeric(b),
+  se = se,
+  ci_lo = b - z * se,
+  ci_hi = b + z * se,
+  row.names = NULL
+)
+
+
+# Desired order
+ord <- c("morphology", "leg impulse", "leg force",
+         "flight speed", "tortuosity", "flight stability")
+
+# Ensure 'group' is a factor with that order
+df_est$group <- factor(df_est$group, levels = ord)
+
+# Plot (unchanged)
+plot_all_bps <- ggplot(df_est, aes(x = group, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey50") +
+  geom_pointrange(aes(ymin = ci_lo, ymax = ci_hi), size = 0.6) +
+  labs(x = "", y = "", title = "all breakpoints") +
+  theme_minimal(base_size = 14)
+
+
+#order it on the x-axis as "morphology", "leg impulse", "leg force", "flight speed", "tortuosity", "flight stability"
+```
+### without left duration and wing loading
+```{r}
+
+df_groups2 <- df_groups %>%
+  filter(!variable %in% c("wing loading", "left duration"))
+df_groups2$group <- factor(df_groups2$group)
+
+m2 <- rma.mv(
+  yi = mean,
+  V  = se^2,
+  mods = ~ 0 +group,
+  method = "REML",# estimate each group’s breakpoint
+  random = ~ 1 | variable, # account for differences among variables
+  data = df_groups2
+)
+
+summary(m2)
 
 ```
-### plots
+#### group-pair comparison
+```{r}
+
+df_groups2$group <- factor(df_groups2$group)
+
+# Levels and number of groups
+lvls <- levels(df_groups2$group)
+K <- length(lvls)
+
+# All pairwise indices
+pairs <- combn(K, 2)
+
+# Contrast rows: +1 for the first group, -1 for the second
+L <- t(apply(pairs, 2, function(idx) {
+  v <- numeric(K)
+  v[idx[1]] <-  1
+  v[idx[2]] <- -1
+  v
+}))
+
+rownames(L) <- paste(lvls[pairs[1, ]], "-", lvls[pairs[2, ]])
+
+# Wald tests for contrasts
+pw2 <- anova(m2, L = L)  # works for rma.mv
+
+pw2
+
+```
+#### plot
+```{r}
+
+# Extract group estimates and SEs
+b   <- coef(m2)         # named by group
+Vb  <- vcov(m2)
+se  <- sqrt(diag(Vb))
+
+# 95% CI (Wald, z)
+z    <- qnorm(0.975)
+df_est <- data.frame(
+  group = sub("^group", "", names(b)),  # remove "group" prefix if present
+  estimate = as.numeric(b),
+  se = se,
+  ci_lo = b - z * se,
+  ci_hi = b + z * se,
+  row.names = NULL
+)
+
+
+# Desired order
+ord <- c("morphology", "leg impulse", "leg force",
+         "flight speed", "tortuosity", "flight stability")
+
+# Ensure 'group' is a factor with that order
+df_est$group <- factor(df_est$group, levels = ord)
+
+# Plot (unchanged)
+plot_only_bps <- ggplot(df_est, aes(x = group, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey50") +
+  geom_pointrange(aes(ymin = ci_lo, ymax = ci_hi), size = 0.6) +
+  labs(x = "", y = "", title = "only significant breakpoints") +
+  theme_minimal(base_size = 14)
+
+```
+### LAST PLOT
+```{r}
+plot_last <- ggarrange(plot_all_bps, plot_only_bps, nrow = 2, ncol = 1) %>%
+  annotate_figure(
+    left = text_grob("Estimated breakpoint (± 95% CI)", 
+                     rot = 90, size = 14)
+  )
+
+plot_last
+```
+```{r}
+
+plot_only_bps2 <- ggplot(df_est, aes(x = group, y = estimate)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey50") +
+  geom_pointrange(aes(ymin = ci_lo, ymax = ci_hi), size = 0.6) +
+  labs(x = "", y = "Estimated breakpoint (± 95% CI)") +
+  theme_minimal(base_size = 14)
+
+plot_only_bps2
+```
+
+### plot candidates
 #### forest 
-- mean and sds quite nice but 
 ```{r}
 
 
 ord <- order(df_groups$mean)
+labels_vec <- as.character(df_groups$variable)
 
 # Forest plot with your labels and ordering
 forest(
   x      = df_groups$mean[ord],        # yi
   vi     = (df_groups$se[ord])^2,      # sampling variances
-  slab   = labels[ord],              # y-axis labels
-  xlab   = "Breakpoint (mean ± 95% CI)",
-  refline = 0
+  slab   = labels_vec[ord],              # y-axis labels
+  #Breakpoint (mean ± 95% CI)
+  xlab   = "",
+  refline = 0,
+  cex = 0.65
 )
 
 
-forest(m)
+#forest(m)
 ```
 
-#### plot with sjPlot
+### plot with sjPlot
 ```{r}
 
-sjPlot::plot_model(m, type = "est", axis.title = "", axis.labels = var_names) 
+sjPlot::plot_model(m, type = "est", axis.title = "", axis.labels = labels_vec) 
 ```
+#### installing packages - orchaRd
+```{r}
+
+pacman::p_load(devtools, tidyverse, metafor, patchwork, R.rsp, emmeans)
+
+devtools::install_github("daniel1noble/orchaRd", force = TRUE)
+
+```
+
+#### loading libraries 
+```{r cars}
+library(metafor)
+library(orchaRd)
+library(RColorBrewer)
+library(ggplot2)
+```
+#### plot with orchard
+```{r}
+
+orchaRd::orchard_plot(m, group = "variable", xlab = "Standardised mean difference",
+    transfm = "none", twig.size = 0.5, trunk.size = 1) 
+
+```
+### ANOSIM
+```{r}
+
+library(dplyr)
+library(tidyr)
+library(vegan)
+
+# --- Helper: align group labels to D in correct order ---
+vars_in_D <- rownames(D)
+
+# If 'coord_g' already exists (variable, group, NMDS1, NMDS2), use it; else re-read groups file
+if (!exists("coord_g")) {
+  df_groups <- readr::read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv", show_col_types = FALSE)
+  coord_g <- df_groups %>% dplyr::select(variable, group)
+}
+
+grp_df <- coord_g %>% dplyr::select(variable, group)
+group_vec <- grp_df %>%
+  right_join(tibble::tibble(variable = vars_in_D), by = "variable") %>%
+  pull(group)
+
+if (any(is.na(group_vec))) {
+  stop("Some variables in D are missing a 'group' label. Check df_groups.csv and row/col names of D.")
+}
+
+Ddist <- as.dist(D)
+
+# =========================================================
+# 1) BETWEEN-GROUP ANOSIM (global + pairwise)
+# =========================================================
+
+set.seed(42)
+anosim_global <- anosim(Ddist, grouping = group_vec, permutations = 999)
+cat("\nGlobal ANOSIM (groups):\n")
+print(anosim_global)
+
+anosim_global_tbl <- tibble::tibble(
+  method = "ANOSIM (global by groups)",
+  R_stat = unname(anosim_global$statistic),
+  p_value = unname(anosim_global$signif),
+  permutations = attr(anosim_global, "permutations") %||% 999
+)
+
+# Pairwise ANOSIM for every pair of groups with ≥2 variables per group
+grp_counts <- table(group_vec)
+groups_use <- names(grp_counts[grp_counts >= 2])
+pairs <- t(combn(groups_use, 2))
+
+pairwise_results <- apply(pairs, 1, function(gp) {
+  gA <- gp[1]; gB <- gp[2]
+  keep <- group_vec %in% c(gA, gB)
+  grp_sub <- droplevels(factor(group_vec[keep]))
+
+  if (min(table(grp_sub)) >= 2) {
+    D_sub <- as.dist(as.matrix(Ddist)[keep, keep])
+    set.seed(42)
+    a <- anosim(D_sub, grouping = grp_sub, permutations = 999)
+    data.frame(group_A = gA,
+               group_B = gB,
+               R_stat = unname(a$statistic),
+               p_value = unname(a$signif),
+               n_A = as.integer(table(grp_sub)[levels(grp_sub)[1]]),
+               n_B = as.integer(table(grp_sub)[levels(grp_sub)[2]]),
+               permutations = attr(a, "permutations") %||% 999,
+               stringsAsFactors = FALSE)
+  } else {
+    data.frame(group_A = gA, group_B = gB,
+               R_stat = NA_real_, p_value = NA_real_,
+               n_A = as.integer(table(grp_sub)[1]),
+               n_B = as.integer(table(grp_sub)[2]),
+               permutations = NA_integer_, stringsAsFactors = FALSE)
+  }
+})
+
+pairwise_tbl <- dplyr::bind_rows(pairwise_results) %>%
+  arrange(p_value) %>%
+  mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
+
+#cat("\nPairwise ANOSIM (between groups):\n")
+View(pairwise_tbl)
+
+# =========================================================
+# 2) WITHIN-GROUP “BETWEEN-VARIABLES” ANOSIM
+#    -> Find clusters of variables within each group (hclust),
+#       require replication (≥2 vars per cluster), then run ANOSIM.
+# =========================================================
+
+within_group_anosim <- function(Ddist, group_vec, min_k = 2, max_k_try = 5, perms = 999) {
+  out <- list()
+  gl <- droplevels(factor(group_vec))
+  glv <- levels(gl)
+
+  for (g in glv) {
+    idx <- which(gl == g)
+    if (length(idx) < 3) {
+      out[[g]] <- data.frame(
+        group = g, k = NA_integer_, R_stat = NA_real_, p_value = NA_real_,
+        n_clusters = NA_integer_, cluster_sizes = NA_character_, note = "Fewer than 3 variables",
+        stringsAsFactors = FALSE
+      )
+      next
+    }
+    # subset distance for variables in group g
+    Dg <- as.dist(as.matrix(Ddist)[idx, idx])
+    # hierarchical clustering of variables in this group
+    hc <- hclust(Dg, method = "average")
+
+    # try k = 2..min(max_k_try, m-1) to get ≥2 clusters with all cluster sizes ≥2
+    m <- length(idx)
+    k_candidates <- seq(min_k, max(2, min(max_k_try, m - 1)))
+    success <- FALSE
+    best_k <- NA_integer_; grp_sub <- NULL
+
+    for (k in k_candidates) {
+      cl <- cutree(hc, k = k)
+      sizes <- table(cl)
+      if (length(sizes) >= 2 && min(sizes) >= 2) {
+        success <- TRUE
+        best_k <- k
+        grp_sub <- factor(cl)
+        break
+      }
+    }
+
+    if (!success) {
+      out[[g]] <- data.frame(
+        group = g, k = NA_integer_, R_stat = NA_real_, p_value = NA_real_,
+        n_clusters = NA_integer_, cluster_sizes = NA_character_, note = "No k produced ≥2 clusters with size ≥2",
+        stringsAsFactors = FALSE
+      )
+      next
+    }
+
+    set.seed(42)
+    a <- anosim(Dg, grouping = grp_sub, permutations = perms)
+    out[[g]] <- data.frame(
+      group = g, k = best_k,
+      R_stat = unname(a$statistic),
+      p_value = unname(a$signif),
+      n_clusters = nlevels(grp_sub),
+      cluster_sizes = paste(as.integer(table(grp_sub)), collapse = ","),
+      permutations = attr(a, "permutations") %||% perms,
+      note = "ANOSIM between clusters of variables inside the group",
+      stringsAsFactors = FALSE
+    )
+  }
+  dplyr::bind_rows(out)
+}
+
+wg_tbl <- within_group_anosim(Ddist, group_vec, min_k = 2, max_k_try = 6, perms = 999)
+cat("\nWithin-group ANOSIM (between clusters of variables):\n")
+print(wg_tbl, row.names = FALSE)
+
+# --- Optional: save results ---
+# readr::write_csv(anosim_global_tbl, "anosim_global.csv")
+# readr::write_csv(pairwise_tbl, "anosim_pairwise_groups.csv")
+# readr::write_csv(wg_tbl, "anosim_within_group_clusters.csv")
+
+
+```
+
+
