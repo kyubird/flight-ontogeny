@@ -719,7 +719,7 @@ plot_wingspan
 plot_wingspan_delta <- plot_del_var(wingspan, wing_data_final, expression(Delta~wingspan~(mm)))
 plot_wingspan_delta
 
-plot_wingspan_base <- plot_raw_base(wingspan, wing_data_final, expression(Delta~wingspan~(mm)))
+plot_wingspan_base <- plot_raw_base(wingspan, wing_data_final, expression(wingspan~(mm)))
 plot_wingspan_base
 ```
 
@@ -743,7 +743,7 @@ plot_scale_g
 plot_scale_g_delta <- plot_del_var(scale_weight*101.97, wing_data_final, expression(Delta~scale~mass~(g)))
 plot_scale_g_delta
 
-plot_scale_g_base <- plot_raw_base(scale_weight*101.97, wing_data_final, expression(Delta~scale~mass~(g)))
+plot_scale_g_base <- plot_raw_base(scale_weight*101.97, wing_data_final, expression(scale~mass~(g)))
 plot_scale_g_base
 ```
 #### scaled mass vs. perching weight
@@ -759,7 +759,7 @@ plot_wingloading
 plot_wingloading_delta <- plot_del_var(wing_loading, wing_data_final, expression(Delta~wing~loading~(N/m^2)))
 plot_wingloading_delta
 
-plot_wingloading_base <- plot_raw_base(wing_loading, wing_data_final, expression(Delta~wing~loading~(N/m^2)))
+plot_wingloading_base <- plot_raw_base(wing_loading, wing_data_final, expression(wing~loading~(N/m^2)))
 plot_wingloading_base
 ```
 
@@ -841,25 +841,25 @@ plot_maxFy_base
 #### d. vertical force (Fz)
 ##### absolute
 ```{r}
-plot_maxFz_abs <- plot_age_var(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs <- plot_age_var(Fx_maxFtot, force_clean, expression(max~Fz~(N)))
 plot_maxFz_abs
 
-plot_maxFz_abs_delta <- plot_del_var(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs_delta <- plot_del_var(Fx_maxFtot, force_clean, expression(max~Fz~(N)))
 plot_maxFz_abs_delta
 
-plot_maxFz_abs_base <- plot_raw_base(Fz_maxFtot, force_clean, expression(max~Fz~(N)))
+plot_maxFz_abs_base <- plot_raw_base(Fx_maxFtot, force_clean, expression(max~Fz~(N)))
 plot_maxFz_abs_base
 ```
 
 ##### relative
 ```{r}
-plot_maxFz <- plot_age_var(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz <- plot_age_var(Fx_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
 plot_maxFz
 
-plot_maxFz_delta <- plot_del_var(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz_delta <- plot_del_var(Fx_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
 plot_maxFz_delta
 
-plot_maxFz_base <- plot_raw_base(Fz_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
+plot_maxFz_base <- plot_raw_base(Fx_maxFtot_bw, force_clean, expression(max~Fz~"/"~bw~(N)))
 plot_maxFz_base
 
 
@@ -867,24 +867,24 @@ plot_maxFz_base
 #### e. longitudinal force
 ##### absolute
 ```{r}
-plot_maxFx_abs <- plot_age_var(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs <- plot_age_var(Fz_maxFtot, force_clean, expression(max~Fx~(N)))
 plot_maxFx_abs
 
-plot_maxFx_abs_delta <- plot_del_var(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs_delta <- plot_del_var(Fz_maxFtot, force_clean, expression(max~Fx~(N)))
 plot_maxFx_abs_delta
 
-plot_maxFx_abs_base <- plot_raw_base(Fx_maxFtot, force_clean, expression(max~Fx~(N)))
+plot_maxFx_abs_base <- plot_raw_base(Fz_maxFtot, force_clean, expression(max~Fx~(N)))
 plot_maxFx_abs_base
 ```
 ##### relative
 ```{r}
-plot_maxFx <- plot_age_var(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx <- plot_age_var(Fz_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
 plot_maxFx
 
-plot_maxFx_delta <- plot_del_var(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx_delta <- plot_del_var(Fz_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
 plot_maxFx_delta
 
-plot_maxFx_base <- plot_raw_base(Fx_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
+plot_maxFx_base <- plot_raw_base(Fz_maxFtot_bw, force_clean, expression(max~Fx~"/"~bw~(N)))
 plot_maxFx_base
 ```
 #### f. takeoff angle 
@@ -904,26 +904,26 @@ plot_angle_base
 ##### impulse 
 ```{r}
 
-plot_impulse <- plot_age_var(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse <- plot_age_var(impulse*1000, force_clean, expression(impulse~(mN*s)))
 plot_impulse
 
-plot_impulse_delta <- plot_del_var(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse_delta <- plot_del_var(impulse*1000, force_clean, expression(impulse~(mN*s)))
 plot_impulse_delta
 
-plot_impulse_base <- plot_raw_base(impulse, force_clean, expression(impulse~(mN*s)))
+plot_impulse_base <- plot_raw_base(impulse*1000, force_clean, expression(impulse~(mN*s)))
 plot_impulse_base
 
 ```
 
 ##### duration
 ```{r}
-plot_duration <- plot_age_var(duration, force_clean, expression(duration~(ms)))
+plot_duration <- plot_age_var(1000*duration, force_clean, expression(duration~(ms)))
 plot_duration
 
-plot_duration_delta <- plot_del_var(duration, force_clean, expression(duration~(ms)))
+plot_duration_delta <- plot_del_var(1000*duration, force_clean, expression(duration~(ms)))
 plot_duration_delta
 
-plot_duration_base <- plot_raw_base(duration, force_clean, expression(duration~(ms)))
+plot_duration_base <- plot_raw_base(1000*duration, force_clean, expression(duration~(ms)))
 plot_duration_base
 ```
 
@@ -984,8 +984,8 @@ plot_right_duration
 plot_right_duration_delta <- plot_del_var(right_duration*1000, force_clean, expression(right~duration~(ms))) 
 plot_right_duration_delta
 
-plot_left_duration_base <- plot_raw_base(right_duration*1000, force_clean, expression(right~duration~(ms)))
-plot_left_duration_base
+plot_right_duration_base <- plot_raw_base(right_duration*1000, force_clean, expression(right~duration~(ms)))
+plot_right_duration_base
 ```
 
 ### TORTUOSITY
@@ -1525,7 +1525,6 @@ plot_breakpoint <- function(breakpoint, breakpoint_se, base_plot){
 plot_final <- function(breakpoint, breakpoint_se,
                            model,            # lmer model
                            df,               # data used for model
-                           overlay = FALSE,
                            base_plot,        # ggplot object
                            include_brood = TRUE,
                            brood_level = "Box5",
@@ -1564,21 +1563,39 @@ plot_final <- function(breakpoint, breakpoint_se,
 
   # 6) Predict (population-level)
   newdat_out$pred <- predict(model, newdat_out, re.form = NA)
+  
+  pred_fun <- function(fit) predict(fit, newdat_out, re.form = NA)
+  
+  set.seed(57)
+  bb <- lme4::bootMer(model, FUN = pred_fun, nsim = 1000, use.u = FALSE, type = "parametric")
+  
+  newdat_out$lwr <- apply(bb$t, 2, quantile, 0.025)
+  newdat_out$upr <- apply(bb$t, 2, quantile, 0.975)
+
+  
 
   # 7) Compose plot
   yr <- ggplot_build(base_plot)$layout$panel_params[[1]]$y.range
   y_top <- max(yr)
   
-  
-  if(overlay == TRUE){
 
   p <- base_plot +
+    
+    
+    ggplot2::geom_ribbon(
+      data = newdat_out,
+      ggplot2::aes(x = Age, ymin = lwr, ymax = upr),
+      fill = "#1f77b4", alpha = 0.18, inherit.aes = FALSE
+    ) +
+
     
     ggplot2::geom_line(
       data = newdat_out,
       ggplot2::aes(x = Age, y = pred),
       color = "#1f77b4", size = 1.5, inherit.aes = FALSE
     ) +
+    
+    # breakpoints
     ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
     ggplot2::annotate(
         "segment",
@@ -1590,36 +1607,7 @@ plot_final <- function(breakpoint, breakpoint_se,
         linewidth = 3,
         alpha = 0.7) +
     ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))
-  }
-  else{
-    
-  p <- ggplot2::geom_line( # predicted means
-      data = newdat_out,
-      ggplot2::aes(x = Age, y = pred),
-      color = "#1f77b4", size = 1.5, inherit.aes = FALSE
-    ) +
-      geom_ribbon( # edit this part to overlay 95% CI (+-1 SD) for predicted means
-      data = newdat_out,
-      aes(x = Age, ymin = mean - sd, ymax = mean + sd),
-      fill = "grey70", alpha = 0.5,
-      inherit.aes = FALSE) + 
-    # ggplot2 CI levels 
-    
-    ggplot2::geom_vline(xintercept = breakpoint, linetype = "dashed", color = "red") +
-    ggplot2::annotate(
-        "segment",
-        x = breakpoint - breakpoint_se,
-        xend = breakpoint + breakpoint_se,
-        y    = y_top,
-        yend = y_top,
-        color = "#E2AFDE",
-        linewidth = 3,
-        alpha = 0.7) +
-    ggplot2::labs(subtitle = sprintf("breakpoint = %.1f (± %.1f SE)", breakpoint, breakpoint_se))  
-    
-    
-    
-  }
+  
 
   return(list(plot = p, newdat = newdat_out))
 }
@@ -1853,16 +1841,16 @@ anova_sw <- Anova(m_sw, type =3, test.statistic = "F") %>% as.data.frame() %>%
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_sw, breakpoint_se_sw, 
-#                      m_sw, 
-#                      wing_data_final,
-#                      plot_scale_g,
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_scale_g_final <- output[1]
-# plot_scale_g_final
+output <- plot_final(breakpoint_sw, breakpoint_se_sw,
+                     m_sw,
+                     wing_data_final,
+                     plot_scale_g_base,
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_scale_g_final <- output[1]
+plot_scale_g_final
 
 ```
 
@@ -1915,7 +1903,7 @@ plot_ranef(m_wingspan)
 ##### test
 ```{r}
 # for residual variance / R^2
-tab_model(m_wingspan)
+#tab_model(m_wingspan)
 
 
 # Wald F test with KR approximation & FDR
@@ -1941,16 +1929,16 @@ anova_wingspan
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_ws, breakpoint_se_ws, 
-#                      m_wingspan, 
-#                      wing_data_final,
-#                      plot_wingspan,
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_wingspan_final <- output[1]
-# plot_wingspan_final
+output <- plot_final(breakpoint_ws, breakpoint_se_ws,
+                     m_wingspan,
+                     wing_data_final,
+                     plot_wingspan_base,
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_wingspan_final <- output[1]
+plot_wingspan_final
 # 
 # wingspan_newdat_out <- output[2]
 
@@ -2009,7 +1997,7 @@ plot_ranef(m_wingarea)
 
 
 # for residual variance / R^2
-tab_model(m_wingarea)
+#tab_model(m_wingarea)
 
 # Wald F test with KR approximation & FDR
 anova_wingarea <- Anova(m_wingarea, type =3, test.statistic = "F") %>% as.data.frame() %>%
@@ -2033,16 +2021,16 @@ anova_wingarea
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_wa, breakpoint_se_wa, 
-#                      m_wingarea, 
-#                      wing_data_final,
-#                      plot_wingarea,
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_wingarea_final <- output[1]
-# plot_wingarea_final
+output <- plot_final(breakpoint_wa, breakpoint_se_wa,
+                     m_wingarea,
+                     wing_data_final,
+                     plot_wingarea_base,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_wingarea_final <- output[1]
+plot_wingarea_final
 
 ```
 #### wing loading
@@ -2108,7 +2096,7 @@ plot_ranef(model)
 
 model <- m_wl
 
-tab_model(model)
+#tab_model(model)
 anova_wl <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% # CHANGE THIS!!
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
@@ -2127,16 +2115,16 @@ anova_wl # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_wl, breakpoint_se_wl, #CHANGE HERE
-#                      m_wl, # CHANGE HERE
-#                      wing_data_final, # CHANGE HERE
-#                      plot_wingloading, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box3",
-#                      sex = "M"
-#                      )
-# plot_wl_final <- output[1] #CHANGE HERE
-# plot_wl_final # CHANGE HERE
+output <- plot_final(breakpoint_wl, breakpoint_se_wl, #CHANGE HERE
+                     m_wl, # CHANGE HERE
+                     wing_data_final, # CHANGE HERE
+                     plot_wingloading_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box3",
+                     sex = "M"
+                     )
+plot_wl_final <- output[1] #CHANGE HERE
+plot_wl_final # CHANGE HERE
 
 
 ```
@@ -2153,7 +2141,7 @@ morphology_delta_plots
 ### LEG
 
 
-#### max Fz-> x(paper)/bw -40
+#### max Fx(Fz in data)/bw -40
 ##### breakpoint detection
 ```{r}
 out <- detect_breakpoint(Fz_maxFtot_bw, force_clean)
@@ -2227,16 +2215,16 @@ anova_Fx
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_Fx, breakpoint_se_Fx, 
-#                      m_Fx, 
-#                      force_clean,
-#                      plot_age_Fx_bw,
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_Fx_final <- output[1]
-# plot_Fx_final
+output <- plot_final(breakpoint_Fx, breakpoint_se_Fx,
+                     m_Fx,
+                     force_clean,
+                     plot_maxFx_base,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_Fx_final <- output[1]
+plot_Fx_final
 
 ```
 #### max Fy / bw - 33.8
@@ -2277,7 +2265,7 @@ plot_ranef(m_Fy)
 ##### test
 ```{r}
 
-tab_model(m_Fy)
+#tab_model(m_Fy)
 anova_Fy <- Anova(m_Fy, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
@@ -2298,18 +2286,18 @@ anova_Fy
 
 
 
-# output <- plot_final2(breakpoint_Fy, breakpoint_se_Fy, 
-#                      m_Fy, 
-#                      force_clean,
-#                      plot_age_Fy_bw,
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      ) 
-# 
-# 
-# plot_Fy_final <- output[1]
-# plot_Fy_final
+output <- plot_final(breakpoint_Fy, breakpoint_se_Fy,
+                     m_Fy,
+                     force_clean,
+                     plot_maxFy_base,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+
+
+plot_Fy_final <- output[1]
+plot_Fy_final
 
 ```
 #### max Fz / bw (vertical force, Fx in data)
@@ -2350,7 +2338,7 @@ plot_ranef(m_Fz)
 ##### test
 ```{r}
 
-tab_model(m_Fz)
+#tab_model(m_Fz)
 anova_Fz <- Anova(m_Fz, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
@@ -2369,16 +2357,16 @@ anova_Fz
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_Fz, breakpoint_se_Fz, 
-#                      m_Fz, 
-#                      force_clean,
-#                      plot_age_Fz_bw,
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "F"
-#                      )
-# plot_Fz_final <- output[1]
-# plot_Fz_final
+output <- plot_final(breakpoint_Fz, breakpoint_se_Fz,
+                     m_Fz,
+                     force_clean,
+                     plot_maxFz_base,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "F"
+                     )
+plot_Fz_final <- output[1]
+plot_Fz_final
 
 ```
 #### max Ftot /bw - 37.1
@@ -2442,16 +2430,16 @@ anova_Ftot
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_Ftot, breakpoint_se_Ftot, 
-#                      m_Ftot, 
-#                      force_data,
-#                      plot_raw_Ftot,
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_Ftot_final <- output[1]
-# plot_Ftot_final
+output <- plot_final(breakpoint_Ftot, breakpoint_se_Ftot,
+                     m_Ftot,
+                     force_data,
+                     plot_maxFtot_base,
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_Ftot_final <- output[1]
+plot_Ftot_final
 
 ```
 
@@ -2510,6 +2498,18 @@ anova_angle
 # print(deltaMethod(model, "Age"))
 ```
 ##### plot
+```{r}
+output <- plot_final(breakpoint_angle, breakpoint_se_angle, 
+                     m_angle,
+                     force_clean,
+                     plot_angle_base,
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_angle_final <- output[1]
+plot_angle_final
+```
 ```{r}
 
 # output_M <- plot_final(breakpoint_angle, breakpoint_se_angle, 
@@ -2654,7 +2654,7 @@ plot_ranef(m_impulse)
 ```{r}
 model <- m_impulse
 
-tab_model(model)
+#tab_model(model)
 anova_impulse <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>%
   mutate(p_FDR = p.adjust(`Pr(>F)`, method = "fdr"))
 
@@ -2676,16 +2676,16 @@ anova_impulse
 ##### plot
 ```{r}
 
-# output <- plot_final3(breakpoint_impulse, breakpoint_se_impulse, 
-#                      m_impulse, 
-#                      force_clean,
-#                      plot_age_impulse,
-#                      include_brood = TRUE,
-#                      brood_level = "Box3",
-#                      sex = "M"
-#                      )
-# plot_impulse_final <- output[1]
-# plot_impulse_final
+output <- plot_final(breakpoint_impulse, breakpoint_se_impulse,
+                     m_impulse,
+                     force_clean,
+                     plot_impulse_base,
+                     include_brood = TRUE,
+                     brood_level = "Box3",
+                     sex = "M"
+                     )
+plot_impulse_final <- output[1]
+plot_impulse_final
 
 
 ```
@@ -2760,16 +2760,16 @@ anova_left_impulse
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_left_impulse, breakpoint_se_left_impulse, 
-#                      m_left_impulse, 
-#                      force_clean,
-#                      plot_left_impulse,
-#                      include_brood = TRUE,
-#                      brood_level = "Box10",
-#                      sex = "M"
-#                      )
-# plot_left_impulse_final <- output[1]
-# plot_left_impulse_final
+output <- plot_final(breakpoint_left_impulse, breakpoint_se_left_impulse,
+                     m_left_impulse,
+                     force_clean,
+                     plot_left_impulse_base,
+                     include_brood = TRUE,
+                     brood_level = "Box10",
+                     sex = "M"
+                     )
+plot_left_impulse_final <- output[1]
+plot_left_impulse_final
 
 
 ```
@@ -2837,16 +2837,16 @@ anova_right_impulse
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_right_impulse, breakpoint_se_right_impulse, 
-#                      m_right_impulse, 
-#                      force_clean,
-#                      plot_right_impulse,
-#                      include_brood = TRUE,
-#                      brood_level = "Box11",
-#                      sex = "M"
-#                      )
-# plot_right_impulse_final <- output[1]
-# plot_right_impulse_final
+output <- plot_final(breakpoint_right_impulse, breakpoint_se_right_impulse,
+                     m_right_impulse,
+                     force_clean,
+                     plot_right_impulse_base,
+                     include_brood = TRUE,
+                     brood_level = "Box11",
+                     sex = "M"
+                     )
+plot_right_impulse_final <- output[1]
+plot_right_impulse_final
 
 
 ```
@@ -2922,16 +2922,16 @@ anova_impulse_ratio # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
-#                      m_impulse_ratio, # CHANGE HERE
-#                      force_clean, # CHANGE HERE
-#                      plot_age_impulse_ratio, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box3",
-#                      sex = "M"
-#                      )
-# plot_impulse_ratio_final <- output[1] #CHANGE HERE
-# plot_impulse_ratio_final # CHANGE HERE
+output <- plot_final(breakpoint_impulse_ratio, breakpoint_se_impulse_ratio, #CHANGE HERE
+                     m_impulse_ratio, # CHANGE HERE
+                     force_clean, # CHANGE HERE
+                     plot_impulse_ratio_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box3",
+                     sex = "M"
+                     )
+plot_impulse_ratio_final <- output[1] #CHANGE HERE
+plot_impulse_ratio_final # CHANGE HERE
 
 
 ```
@@ -3005,16 +3005,16 @@ anova_duration
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_duration, breakpoint_se_duration, 
-#                      m_duration, 
-#                      force_clean,
-#                      plot_age_duration,
-#                      include_brood = TRUE,
-#                      brood_level = "orangeR-pinkR",
-#                      sex = "M"
-#                      )
-# plot_duration_final <- output[1]
-# plot_duration_final
+output <- plot_final(breakpoint_duration, breakpoint_se_duration,
+                     m_duration,
+                     force_clean,
+                     plot_duration_base,
+                     include_brood = TRUE,
+                     brood_level = "orangeR-pinkR",
+                     sex = "M"
+                     )
+plot_duration_final <- output[1]
+plot_duration_final
 
 ```
 
@@ -3087,16 +3087,16 @@ anova_left_duration # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_left_duration, breakpoint_se_left_duration, #CHANGE HERE
-#                      m_left_duration, # CHANGE HERE
-#                      force_clean,
-#                      plot_left_duration, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box11",
-#                      sex = "M"
-#                      )
-# plot_left_duration_final <- output[1] #CHANGE HERE
-# plot_left_duration_final # CHANGE HERE
+output <- plot_final(breakpoint_left_duration, breakpoint_se_left_duration, #CHANGE HERE
+                     m_left_duration, # CHANGE HERE
+                     force_clean,
+                     plot_left_duration_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box11",
+                     sex = "M"
+                     )
+plot_left_duration_final <- output[1] #CHANGE HERE
+plot_left_duration_final # CHANGE HERE
 
 ```
 #### right duration -33.1
@@ -3170,16 +3170,16 @@ anova_right_duration # CHANGE THIS!!
 
 ##### plot
 ```{r}
-# output <- plot_final(breakpoint_right_duration, breakpoint_se_right_duration, #CHANGE HERE
-#                      m_right_duration, # CHANGE HERE
-#                      force_clean,
-#                      plot_right_duration, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_right_duration_final <- output[1] #CHANGE HERE
-# plot_right_duration_final # CHANGE HERE
+output <- plot_final(breakpoint_right_duration, breakpoint_se_right_duration, #CHANGE HERE
+                     m_right_duration, # CHANGE HERE
+                     force_clean,
+                     plot_right_duration_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_right_duration_final <- output[1] #CHANGE HERE
+plot_right_duration_final # CHANGE HERE
 
 ```
 
@@ -3259,16 +3259,16 @@ anova_vz # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_vz, breakpoint_se_vz, #CHANGE HERE
-#                      m_vz, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_vz_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_vz_final <- output[1] #CHANGE HERE
-# plot_vz_final # CHANGE HERE
+output <- plot_final(breakpoint_vz, breakpoint_se_vz, #CHANGE HERE
+                     m_vz, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_vz_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_vz_final <- output[1] #CHANGE HERE
+plot_vz_final # CHANGE HERE
 
 
 ```
@@ -3344,16 +3344,16 @@ anova_vy # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_vy, breakpoint_se_vy, #CHANGE HERE
-#                      m_vy, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_vy_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_vy_final <- output[1] #CHANGE HERE
-# plot_vy_final # CHANGE HERE
+output <- plot_final(breakpoint_vy, breakpoint_se_vy, #CHANGE HERE
+                     m_vy, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_vy_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_vy_final <- output[1] #CHANGE HERE
+plot_vy_final # CHANGE HERE
 
 
 ```
@@ -3429,16 +3429,16 @@ anova_vx # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_vx, breakpoint_se_vx, #CHANGE HERE
-#                      m_vx, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_vx_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_vx_final <- output[1] #CHANGE HERE
-# plot_vx_final # CHANGE HERE
+output <- plot_final(breakpoint_vx, breakpoint_se_vx, #CHANGE HERE
+                     m_vx, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_vx_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_vx_final <- output[1] #CHANGE HERE
+plot_vx_final # CHANGE HERE
 
 
 ```
@@ -3514,16 +3514,16 @@ anova_vx # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_accx, breakpoint_se_accx, #CHANGE HERE
-#                      m_accx, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_accx_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_accx_final <- output[1] #CHANGE HERE
-# plot_accx_final # CHANGE HERE
+output <- plot_final(breakpoint_accx, breakpoint_se_accx, #CHANGE HERE
+                     m_accx, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_accx_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_accx_final <- output[1] #CHANGE HERE
+plot_accx_final # CHANGE HERE
 
 
 ```
@@ -3600,16 +3600,16 @@ anova_accy # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_accy, breakpoint_se_accy, #CHANGE HERE
-#                      m_accy, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_accy_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_accy_final <- output[1] #CHANGE HERE
-# plot_accy_final # CHANGE HERE
+output <- plot_final(breakpoint_accy, breakpoint_se_accy, #CHANGE HERE
+                     m_accy, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_accy_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_accy_final <- output[1] #CHANGE HERE
+plot_accy_final # CHANGE HERE
 
 
 ```
@@ -3685,16 +3685,16 @@ anova_accz# CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_accz, breakpoint_se_accz, #CHANGE HERE
-#                      m_accz, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_accz_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_accz_final <- output[1] #CHANGE HERE
-# plot_accz_final # CHANGE HERE
+output <- plot_final(breakpoint_accz, breakpoint_se_accz, #CHANGE HERE
+                     m_accz, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_accz_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_accz_final <- output[1] #CHANGE HERE
+plot_accz_final # CHANGE HERE
 
 
 ```
@@ -3770,16 +3770,16 @@ anova_tacc # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_tacc, breakpoint_se_tacc, #CHANGE HERE
-#                      m_tacc, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_tacc_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_tacc_final <- output[1] #CHANGE HERE
-# plot_tacc_final # CHANGE HERE
+output <- plot_final(breakpoint_tacc, breakpoint_se_tacc, #CHANGE HERE
+                     m_tacc, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_tacc_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_tacc_final <- output[1] #CHANGE HERE
+plot_tacc_final # CHANGE HERE
 
 
 ```
@@ -3856,16 +3856,16 @@ anova_vres # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_vres, breakpoint_se_vres, #CHANGE HERE
-#                      m_vres, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_vres_mean, # CHANGE HERE
-#                      include_brood = FALSE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_vres_final <- output[1] #CHANGE HERE
-# plot_vres_final # CHANGE HERE
+output <- plot_final(breakpoint_vres, breakpoint_se_vres, #CHANGE HERE
+                     m_vres, # CHANGE HERE
+                     flights_speed, # CHANGE HERE
+                     plot_vres_base, # CHANGE HERE
+                     include_brood = FALSE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_vres_final <- output[1] #CHANGE HERE
+plot_vres_final # CHANGE HERE
 
 
 ```
@@ -3942,16 +3942,16 @@ anova_tr # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_tr, breakpoint_se_tr, #CHANGE HERE
-#                      m_tr, # CHANGE HERE
-#                      flights_tort, # CHANGE HERE
-#                      plot_tr_mean, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box3",
-#                      sex = "M"
-#                      )
-# plot_tr_final <- output[1] #CHANGE HERE
-# plot_tr_final # CHANGE HERE
+output <- plot_final(breakpoint_tr, breakpoint_se_tr, #CHANGE HERE
+                     m_tr, # CHANGE HERE
+                     flights_tort, # CHANGE HERE
+                     plot_tr_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box3",
+                     sex = "M"
+                     )
+plot_tr_final <- output[1] #CHANGE HERE
+plot_tr_final # CHANGE HERE
 
 
 ```
@@ -4049,16 +4049,16 @@ anova_centri # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final2(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
-#                      m_centri, # CHANGE HERE
-#                      flights_speed, # CHANGE HERE
-#                      plot_ctracc_mean, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box11",
-#                      sex = "M"
-#                      )
-# plot_centri_final <- output[1] #CHANGE HERE
-# plot_centri_final # CHANGE HERE
+output <- plot_final(breakpoint_centri, breakpoint_se_centri, #CHANGE HERE
+                     m_centri, # CHANGE HERE
+                     flights_tort, # CHANGE HERE
+                     plot_ctracc_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box11",
+                     sex = "M"
+                     )
+plot_centri_final <- output[1] #CHANGE HERE
+plot_centri_final # CHANGE HERE
 
 
 ```
@@ -4134,16 +4134,16 @@ anova_wb # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
-#                      m_wb, # CHANGE HERE
-#                      flights_wing, # CHANGE HERE
-#                      plot_wb_mean, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_wb_final <- output[1] #CHANGE HERE
-# plot_wb_final # CHANGE HERE
+output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
+                     m_wb, # CHANGE HERE
+                     flights_wing, # CHANGE HERE
+                     plot_wb_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box11",
+                     sex = "M"
+                     )
+plot_wb_final <- output[1] #CHANGE HERE
+plot_wb_final # CHANGE HERE
 
 
 ```
@@ -4219,16 +4219,16 @@ anova_downstroke # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_downstroke, breakpoint_se_downstroke, #CHANGE HERE
-#                      m_downstroke, # CHANGE HERE
-#                      flights_wing, # CHANGE HERE
-#                      plot_downstroke_mm, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_downstroke_final <- output[1] #CHANGE HERE
-# plot_downstroke_final # CHANGE HERE
+output <- plot_final(breakpoint_downstroke, breakpoint_se_downstroke, #CHANGE HERE
+                     m_downstroke, # CHANGE HERE
+                     flights_wing, # CHANGE HERE
+                     plot_downstroke_mm_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_downstroke_final <- output[1] #CHANGE HERE
+plot_downstroke_final # CHANGE HERE
 
 
 ```
@@ -4304,16 +4304,16 @@ anova_upstroke # CHANGE THIS!!
 ##### plot
 ```{r}
 
-# output <- plot_final(breakpoint_upstroke, breakpoint_se_upstroke, #CHANGE HERE
-#                      m_upstroke, # CHANGE HERE
-#                      flights_wing, # CHANGE HERE
-#                      plot_upstroke_mm, # CHANGE HERE
-#                      include_brood = TRUE,
-#                      brood_level = "Box5",
-#                      sex = "M"
-#                      )
-# plot_upstroke_final <- output[1] #CHANGE HERE
-# plot_upstroke_final # CHANGE HERE
+output <- plot_final(breakpoint_upstroke, breakpoint_se_upstroke, #CHANGE HERE
+                     m_upstroke, # CHANGE HERE
+                     flights_wing, # CHANGE HERE
+                     plot_upstroke_mm_base, # CHANGE HERE
+                     include_brood = TRUE,
+                     brood_level = "Box5",
+                     sex = "M"
+                     )
+plot_upstroke_final <- output[1] #CHANGE HERE
+plot_upstroke_final # CHANGE HERE
 
 
 ```
@@ -4658,7 +4658,7 @@ breakpoints_se <- c()
 
 out_all <- vector("list", length(lmer_mods))
 
-plot_files <- vector("character", length(lmer_mods))
+#plot_files <- vector("character", length(lmer_mods))
 
 
 for (i in seq_along(lmer_mods)){
@@ -4722,11 +4722,11 @@ for (i in seq_along(lmer_mods)){
     after_slope_upper)
   
   
-  # --- NEW: markdown-formatted test strings with bold p<0.05 ---
- 
-  before_term_txt <- fmt_term_plain(before_slope_F, before_slope_Df, before_slope_ResDf, before_slope_P)
-  after_term_txt  <- fmt_term_plain(after_slope_F,  after_slope_Df,  after_slope_ResDf,  after_slope_P)
-  same_term_txt   <- fmt_term_plain(same_slope_F,   same_slope_Df,   same_slope_ResDf,   same_slope_P)
+  # # --- NEW: markdown-formatted test strings with bold p<0.05 ---
+  # 
+  # before_term_txt <- fmt_term_plain(before_slope_F, before_slope_Df, before_slope_ResDf, before_slope_P)
+  # after_term_txt  <- fmt_term_plain(after_slope_F,  after_slope_Df,  after_slope_ResDf,  after_slope_P)
+  # same_term_txt   <- fmt_term_plain(same_slope_F,   same_slope_Df,   same_slope_ResDf,   same_slope_P)
 
 
   
@@ -4750,21 +4750,21 @@ for (i in seq_along(lmer_mods)){
   out_all[[i]] <- out_row
   
   
-  bp <- breakpoints[i]      # <-- supply your per-model breakpoint
-  bp_se <- breakpoints_se[i]   # <-- supply your per-model breakpoint SE
-
-  plot_files[i] <- save_model_plot_plain(
-    mod            = mod,
-    label          = labels[i],
-    breakpoint     = bp,
-    breakpoint_se  = bp_se,
-    before_string  = before_string,
-    after_string   = after_string,
-    before_term_txt = before_term_txt,
-    after_term_txt  = after_term_txt,
-    same_term_txt   = same_term_txt,
-    out_dir        = "plots"    # change if you prefer a different folder
-  )
+  # bp <- breakpoints[i]      # <-- supply your per-model breakpoint
+  # bp_se <- breakpoints_se[i]   # <-- supply your per-model breakpoint SE
+  # 
+  # plot_files[i] <- save_model_plot_plain(
+  #   mod            = mod,
+  #   label          = labels[i],
+  #   breakpoint     = bp,
+  #   breakpoint_se  = bp_se,
+  #   before_string  = before_string,
+  #   after_string   = after_string,
+  #   before_term_txt = before_term_txt,
+  #   after_term_txt  = after_term_txt,
+  #   same_term_txt   = same_term_txt,
+  #   out_dir        = "plots"    # change if you prefer a different folder
+  # )
 }
 
 
@@ -4773,7 +4773,7 @@ out_all_test <- do.call(rbind, out_all)
 
 knitr::kable(out_all_test, escape = FALSE)
 
-plot_files[1]
+#plot_files[1]
 ```
 ### function model_plot
 - raw data, breakpoint (mean and se), predicted lines from linear Hypothesis
@@ -4788,13 +4788,28 @@ plot_files[1]
 ```{r}
 library(patchwork)
 morphology_plots <- (plot_scale_g_final$plot | plot_wl_final$plot ) /
-              (plot_wingarea_final$plot | plot_wingspan_final$plot) 
+              (plot_wingarea_final$plot | plot_wingspan_final$plot) &
+  theme(
+    axis.title.x = element_text(size = 24),
+    axis.title.y = element_text(size = 28),
+    axis.text.x  = element_text(size = 18),
+    axis.text.y  = element_text(size = 18),
+    plot.subtitle= element_text(size = 26)
+  ) 
 
-morphology_plots
+
+morphology_plots 
 ```
 #### leg force 
 ```{r}
-leg_force_plots <- (plot_Fy_final$plot | plot_Ftot_final$plot) / (plot_Fx_final$plot | plot_Fz_final$plot | plot_angle_M$plot)
+leg_force_plots <- (plot_Fy_final$plot | plot_Ftot_final$plot) / (plot_Fx_final$plot | plot_Fz_final$plot | plot_angle_final$plot) &
+  theme(
+    axis.title.x = element_text(size = 24),
+    axis.title.y = element_text(size = 28),
+    axis.text.x  = element_text(size = 18),
+    axis.text.y  = element_text(size = 18),
+    plot.subtitle= element_text(size = 26)
+  ) 
 leg_force_plots
 ```
 
@@ -4802,9 +4817,20 @@ leg_force_plots
 ```{r}
 # impulse and duration
 
-impulse_plots <- 
-  (plot_impulse_final$plot | plot_impulse_ratio_final$plot | plot_duration_final$plot ) / 
-  (plot_left_duration_final$plot | plot_right_duration_final$plot | plot_left_impulse_final$plot | plot_right_impulse_final$plot)                                           
+impulse_plots <- (plot_impulse_final$plot | plot_duration_final$plot ) / 
+  (plot_impulse_ratio_final$plot | plot_left_impulse_final$plot | plot_right_impulse_final$plot) / (plot_spacer() | plot_left_duration_final$plot | plot_right_duration_final$plot) &
+  theme(
+    axis.title.x = element_text(size = 24),
+    axis.title.y = element_text(size = 28),
+    axis.text.x  = element_text(size = 18),
+    axis.text.y  = element_text(size = 18),
+    plot.subtitle= element_text(size = 26)
+  ) 
+  
+  
+  
+  # (plot_impulse_final$plot | plot_duration_final$plot ) / (plot_impulse_ratio_final$plot | ((plot_left_impulse_final$plot | plot_right_impulse_final$plot) / (plot_left_duration_final$plot | plot_right_duration_final$plot)))
+                                         
 
 impulse_plots
 ```
@@ -4812,18 +4838,32 @@ impulse_plots
 #### trajectory
 ```{r}
 
-trajectory_plots <- (plot_vx_final$plot | plot_vy_final$plot | plot_vz_final$plot ) /
+flight_speed_plots <- (plot_vx_final$plot | plot_vy_final$plot | plot_vz_final$plot ) /
                               (plot_vres_final$plot | plot_tacc_final) /
-                (plot_accx_final$plot | plot_accy_final$plot | plot_accz_final$plot)
+                (plot_accx_final$plot | plot_accy_final$plot | plot_accz_final$plot) &
+  theme(
+    axis.title.x = element_text(size = 24),
+    axis.title.y = element_text(size = 28),
+    axis.text.x  = element_text(size = 18),
+    axis.text.y  = element_text(size = 18),
+    plot.subtitle= element_text(size = 26)
+  ) 
 
 
-trajectory_plots
+flight_speed_plots
 ```
 
 #### tortuosity & wings
 ```{r}
 
-wavy_plots <- (plot_tr_final$plot | plot_centri_final$plot )/( plot_wb_final$plot | plot_downstroke_final$plot | plot_upstroke_final$plot)
+wavy_plots <- (plot_tr_final$plot | plot_centri_final$plot )/( plot_wb_final$plot | plot_downstroke_final$plot | plot_upstroke_final$plot) &
+  theme(
+    axis.title.x = element_text(size = 24),
+    axis.title.y = element_text(size = 28),
+    axis.text.x  = element_text(size = 18),
+    axis.text.y  = element_text(size = 18),
+    plot.subtitle= element_text(size = 26)
+  ) 
 
 wavy_plots
 
@@ -5146,6 +5186,7 @@ make_welch_kable(res_stable$table)
 
 ### p-value matrix
 - without wing loading and left duration
+- using p-value to make distance matrix
 ```{r}
 
 library(reshape2)
@@ -5526,9 +5567,9 @@ df_groups <- data.frame("variable" = var_names,
 
 ## dataset
 ```{r}
-df_groups <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv")
+df_groups2 <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups2.csv")
 
-head(df_groups)
+head(df_groups2)
 
 ```
 
@@ -5536,7 +5577,8 @@ head(df_groups)
 ```{r}
 library(metafor)
 
-df_groups$group <- factor(df_groups$group)
+
+df_groups2$group <- factor(df_groups2$group)
 
 m <- rma.mv(
   yi = mean,
@@ -5544,12 +5586,12 @@ m <- rma.mv(
   mods = ~ 0 +group,
   method = "REML",# estimate each group’s breakpoint
   random = ~ 1 | variable, # account for differences among variables
-  data = df_groups
+  data = df_groups2
 )
 
 summary(m)
 ```
-#### group-pairwise comparison
+####group-pairwise comparison
 ```{r}
 df_groups$group <- factor(df_groups$group)
 
@@ -5611,6 +5653,7 @@ plot_all_bps <- ggplot(df_est, aes(x = group, y = estimate)) +
 
 
 #order it on the x-axis as "morphology", "leg impulse", "leg force", "flight speed", "tortuosity", "flight stability"
+plot_all_bps
 ```
 ### without left duration and wing loading
 ```{r}
@@ -5694,7 +5737,7 @@ plot_only_bps <- ggplot(df_est, aes(x = group, y = estimate)) +
   theme_minimal(base_size = 14)
 
 ```
-### LAST PLOT
+### with and without wl & left duration
 ```{r}
 plot_last <- ggarrange(plot_all_bps, plot_only_bps, nrow = 2, ncol = 1) %>%
   annotate_figure(
@@ -5704,6 +5747,7 @@ plot_last <- ggarrange(plot_all_bps, plot_only_bps, nrow = 2, ncol = 1) %>%
 
 plot_last
 ```
+### PAPER plot - only significant breakpoints
 ```{r}
 
 plot_only_bps2 <- ggplot(df_est, aes(x = group, y = estimate)) +
@@ -5715,18 +5759,17 @@ plot_only_bps2 <- ggplot(df_est, aes(x = group, y = estimate)) +
 plot_only_bps2
 ```
 
-### plot candidates
-#### forest 
+### forest plot
 ```{r}
 
 
-ord <- order(df_groups$mean)
-labels_vec <- as.character(df_groups$variable)
+ord <- order(df_groups2$mean)
+labels_vec <- as.character(df_groups2$variable)
 
 # Forest plot with your labels and ordering
 forest(
-  x      = df_groups$mean[ord],        # yi
-  vi     = (df_groups$se[ord])^2,      # sampling variances
+  x      = df_groups2$mean[ord],        # yi
+  vi     = (df_groups2$se[ord])^2,      # sampling variances
   slab   = labels_vec[ord],              # y-axis labels
   #Breakpoint (mean ± 95% CI)
   xlab   = "",
@@ -5738,193 +5781,5 @@ forest(
 #forest(m)
 ```
 
-### plot with sjPlot
-```{r}
-
-sjPlot::plot_model(m, type = "est", axis.title = "", axis.labels = labels_vec) 
-```
-#### installing packages - orchaRd
-```{r}
-
-pacman::p_load(devtools, tidyverse, metafor, patchwork, R.rsp, emmeans)
-
-devtools::install_github("daniel1noble/orchaRd", force = TRUE)
-
-```
-
-#### loading libraries 
-```{r cars}
-library(metafor)
-library(orchaRd)
-library(RColorBrewer)
-library(ggplot2)
-```
-#### plot with orchard
-```{r}
-
-orchaRd::orchard_plot(m, group = "variable", xlab = "Standardised mean difference",
-    transfm = "none", twig.size = 0.5, trunk.size = 1) 
-
-```
-### ANOSIM
-```{r}
-
-library(dplyr)
-library(tidyr)
-library(vegan)
-
-# --- Helper: align group labels to D in correct order ---
-vars_in_D <- rownames(D)
-
-# If 'coord_g' already exists (variable, group, NMDS1, NMDS2), use it; else re-read groups file
-if (!exists("coord_g")) {
-  df_groups <- readr::read_csv("C:\\Users\\jesu4036\\Documents\\df_groups.csv", show_col_types = FALSE)
-  coord_g <- df_groups %>% dplyr::select(variable, group)
-}
-
-grp_df <- coord_g %>% dplyr::select(variable, group)
-group_vec <- grp_df %>%
-  right_join(tibble::tibble(variable = vars_in_D), by = "variable") %>%
-  pull(group)
-
-if (any(is.na(group_vec))) {
-  stop("Some variables in D are missing a 'group' label. Check df_groups.csv and row/col names of D.")
-}
-
-Ddist <- as.dist(D)
-
-# =========================================================
-# 1) BETWEEN-GROUP ANOSIM (global + pairwise)
-# =========================================================
-
-set.seed(42)
-anosim_global <- anosim(Ddist, grouping = group_vec, permutations = 999)
-cat("\nGlobal ANOSIM (groups):\n")
-print(anosim_global)
-
-anosim_global_tbl <- tibble::tibble(
-  method = "ANOSIM (global by groups)",
-  R_stat = unname(anosim_global$statistic),
-  p_value = unname(anosim_global$signif),
-  permutations = attr(anosim_global, "permutations") %||% 999
-)
-
-# Pairwise ANOSIM for every pair of groups with ≥2 variables per group
-grp_counts <- table(group_vec)
-groups_use <- names(grp_counts[grp_counts >= 2])
-pairs <- t(combn(groups_use, 2))
-
-pairwise_results <- apply(pairs, 1, function(gp) {
-  gA <- gp[1]; gB <- gp[2]
-  keep <- group_vec %in% c(gA, gB)
-  grp_sub <- droplevels(factor(group_vec[keep]))
-
-  if (min(table(grp_sub)) >= 2) {
-    D_sub <- as.dist(as.matrix(Ddist)[keep, keep])
-    set.seed(42)
-    a <- anosim(D_sub, grouping = grp_sub, permutations = 999)
-    data.frame(group_A = gA,
-               group_B = gB,
-               R_stat = unname(a$statistic),
-               p_value = unname(a$signif),
-               n_A = as.integer(table(grp_sub)[levels(grp_sub)[1]]),
-               n_B = as.integer(table(grp_sub)[levels(grp_sub)[2]]),
-               permutations = attr(a, "permutations") %||% 999,
-               stringsAsFactors = FALSE)
-  } else {
-    data.frame(group_A = gA, group_B = gB,
-               R_stat = NA_real_, p_value = NA_real_,
-               n_A = as.integer(table(grp_sub)[1]),
-               n_B = as.integer(table(grp_sub)[2]),
-               permutations = NA_integer_, stringsAsFactors = FALSE)
-  }
-})
-
-pairwise_tbl <- dplyr::bind_rows(pairwise_results) %>%
-  arrange(p_value) %>%
-  mutate(p_adj_BH = p.adjust(p_value, method = "BH"))
-
-#cat("\nPairwise ANOSIM (between groups):\n")
-View(pairwise_tbl)
-
-# =========================================================
-# 2) WITHIN-GROUP “BETWEEN-VARIABLES” ANOSIM
-#    -> Find clusters of variables within each group (hclust),
-#       require replication (≥2 vars per cluster), then run ANOSIM.
-# =========================================================
-
-within_group_anosim <- function(Ddist, group_vec, min_k = 2, max_k_try = 5, perms = 999) {
-  out <- list()
-  gl <- droplevels(factor(group_vec))
-  glv <- levels(gl)
-
-  for (g in glv) {
-    idx <- which(gl == g)
-    if (length(idx) < 3) {
-      out[[g]] <- data.frame(
-        group = g, k = NA_integer_, R_stat = NA_real_, p_value = NA_real_,
-        n_clusters = NA_integer_, cluster_sizes = NA_character_, note = "Fewer than 3 variables",
-        stringsAsFactors = FALSE
-      )
-      next
-    }
-    # subset distance for variables in group g
-    Dg <- as.dist(as.matrix(Ddist)[idx, idx])
-    # hierarchical clustering of variables in this group
-    hc <- hclust(Dg, method = "average")
-
-    # try k = 2..min(max_k_try, m-1) to get ≥2 clusters with all cluster sizes ≥2
-    m <- length(idx)
-    k_candidates <- seq(min_k, max(2, min(max_k_try, m - 1)))
-    success <- FALSE
-    best_k <- NA_integer_; grp_sub <- NULL
-
-    for (k in k_candidates) {
-      cl <- cutree(hc, k = k)
-      sizes <- table(cl)
-      if (length(sizes) >= 2 && min(sizes) >= 2) {
-        success <- TRUE
-        best_k <- k
-        grp_sub <- factor(cl)
-        break
-      }
-    }
-
-    if (!success) {
-      out[[g]] <- data.frame(
-        group = g, k = NA_integer_, R_stat = NA_real_, p_value = NA_real_,
-        n_clusters = NA_integer_, cluster_sizes = NA_character_, note = "No k produced ≥2 clusters with size ≥2",
-        stringsAsFactors = FALSE
-      )
-      next
-    }
-
-    set.seed(42)
-    a <- anosim(Dg, grouping = grp_sub, permutations = perms)
-    out[[g]] <- data.frame(
-      group = g, k = best_k,
-      R_stat = unname(a$statistic),
-      p_value = unname(a$signif),
-      n_clusters = nlevels(grp_sub),
-      cluster_sizes = paste(as.integer(table(grp_sub)), collapse = ","),
-      permutations = attr(a, "permutations") %||% perms,
-      note = "ANOSIM between clusters of variables inside the group",
-      stringsAsFactors = FALSE
-    )
-  }
-  dplyr::bind_rows(out)
-}
-
-wg_tbl <- within_group_anosim(Ddist, group_vec, min_k = 2, max_k_try = 6, perms = 999)
-cat("\nWithin-group ANOSIM (between clusters of variables):\n")
-print(wg_tbl, row.names = FALSE)
-
-# --- Optional: save results ---
-# readr::write_csv(anosim_global_tbl, "anosim_global.csv")
-# readr::write_csv(pairwise_tbl, "anosim_pairwise_groups.csv")
-# readr::write_csv(wg_tbl, "anosim_within_group_clusters.csv")
-
-
-```
 
 
