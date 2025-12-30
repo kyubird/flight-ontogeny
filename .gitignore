@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Code bin
+notebook/takeoff-force-bin.Rmd
+
 # C extensions
 *.so
 
