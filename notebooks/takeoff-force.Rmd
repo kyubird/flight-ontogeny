@@ -2368,6 +2368,8 @@ output <- plot_final(breakpoint_Fz, breakpoint_se_Fz,
 plot_Fz_final <- output[1]
 plot_Fz_final
 
+output[2]
+
 ```
 #### max Ftot /bw - 37.1
 ##### breakpoint detection
@@ -2509,6 +2511,7 @@ output <- plot_final(breakpoint_angle, breakpoint_se_angle,
                      )
 plot_angle_final <- output[1]
 plot_angle_final
+output[2]
 ```
 ```{r}
 
@@ -3270,7 +3273,7 @@ output <- plot_final(breakpoint_vz, breakpoint_se_vz, #CHANGE HERE
 plot_vz_final <- output[1] #CHANGE HERE
 plot_vz_final # CHANGE HERE
 
-
+output[2] # to see the initial estimate at day 20
 ```
 #### Y velocity - 33.0
 ##### breakpoint duration
@@ -4090,7 +4093,7 @@ model_results <- compare_models_pmax(wingbeat_frequency, breakpoint_wb, flights_
 model_results[1:3]
 
 # saves the model to test 
-m_wb <- model_results[[4]]$m5 # in theory could
+m_wb <- model_results[[4]]$m5 
 m_wb
 
 ```
@@ -4121,15 +4124,6 @@ anova_wb <- Anova(model, type =3, test.statistic = "F") %>% as.data.frame() %>% 
 
 anova_wb # CHANGE THIS!!
 
-# linearHypothesis(model, "Age+hinge = 0", test = "F") # Is the slope before the breakpoint flat? -> no
-# linearHypothesis(model, "Age = 0", test = "F") # Is the slope after the breakpoint flat? -> no
-# linearHypothesis(model, "Age = Age+hinge", test = "F")
-# 
-# #before slope
-# print(deltaMethod(model, "Age + hinge"))
-# #after slope
-# print(deltaMethod(model, "Age"))
-
 ```
 ##### plot
 ```{r}
@@ -4139,13 +4133,13 @@ output <- plot_final(breakpoint_wb, breakpoint_se_wb, #CHANGE HERE
                      flights_wing, # CHANGE HERE
                      plot_wb_base, # CHANGE HERE
                      include_brood = TRUE,
-                     brood_level = "Box11",
-                     sex = "M"
+                     brood_level = "WhitePinkR-BlueR",
+                     sex = "F"
                      )
 plot_wb_final <- output[1] #CHANGE HERE
 plot_wb_final # CHANGE HERE
 
-
+output[2] # opposite trend from the breakpoint detection
 ```
 #### downstroke
 ##### breakpoint detection = 40.0
@@ -4319,25 +4313,54 @@ plot_upstroke_final # CHANGE HERE
 ```
 ### MODEL OUTPUT
 #### function fmt_term: F = xx.xx (Df, Df.res) (p-display)
+-added bold and underline
 ```{r}
-# Helper to format one term: F = xx.xx (Df, Df.res) (p-display)
-fmt_term <- function(F, Df, Df_res, p, digits_F = 1, digits_Df = 1, p_thresh = 0.001) {
+
+fmt_term <- function(F, Df, Df_res, p,
+                     digits_F = 1, digits_Df = 1, p_thresh = 0.001) {
   if (anyNA(c(F, Df, Df_res, p))) return(NA_character_)
+
   F_str   <- format(round(F, digits_F), nsmall = digits_F, trim = TRUE)
   Df_str  <- format(Df, trim = TRUE)
   Res_str <- format(round(Df_res, digits_Df), nsmall = digits_Df, trim = TRUE)
-  
+
   p_str <- if (is.na(p)) {
-      "p = NA"
-    } else if (p < p_thresh) {
-      "p < 0.001"
-    } else {
-      paste0("p = ", format(round(p, 2), nsmall = 2))
-    }
-
-  sprintf("F<sub>%s, %s</sub> = %s, %s",  Df_str, Res_str, F_str, p_str)
-
+    "p = NA"
+  } else if (p < p_thresh) {
+    "p < 0.001"
+  } else if (p >= p_thresh && p < 0.01) {
+    paste0("p = ", format(round(p, 3), nsmall = 3))
+  } else {
+    paste0("p = ", format(round(p, 2), nsmall = 2))
   }
+  
+  
+  # Build two-line cell with \makecell: first line F, second line p
+  # Each line uses math mode for proper formatting
+  cell_body <- paste0(
+    "\\makecell{$F_{", Df_str, ",", Res_str, "} = ", F_str, "$ \\\\ $", p_str, "$}"
+  )
+
+
+  #base_txt <- sprintf("$F_{%s,%s} = %s$, $%s$", Df_str, Res_str, F_str, p_str)
+
+  # Apply formatting: bold if p < 0.05; underline if 0.05 ≤ p < 0.1
+  if (!is.na(p)) {
+    if (p < 0.05) {
+      
+      cell_body <- paste0("\\textbf{\\boldmath ", cell_body, "}")
+      
+    } else if (p >= 0.05 && p < 0.10) {
+      
+      cell_body <- paste0("\\underline{", cell_body, "}")
+      
+    }
+  }
+
+  cell_body
+}
+
+
 ```
 
 ```{r}
@@ -4345,12 +4368,12 @@ library(knitr)
 
 labels <- c(
   # morphology -------- 4 
-  "scaled_weight", "wingspan", "wingarea", "wing loading",
+  "scaled mass (g)", "wingspan (mm)", "wingarea (m^2)", "wing loading (N/m^2)",
   #leg force ---------- 12
-  "Fx/bw (Fz in data)", "Fy/bw", "Fz/bw (Fx in dat)", "Ftot/bw", 
-  "angle", "impulse", "left impulse", "right impulse", "impulse ratio", "duration", "left_duration", "right_duration",
+  "peak longitudinal force (x bw)", "peak horizontal force (x bw)", "peak vertical force (x bw)", "peak force magnitude (x bw) ", 
+  "take-off angle", "total impulse", "impulse before", "impulse after", "impulse ratio", "total impulse duration", "duration before", "duration after",
   #trajectory --------- 8 
-  "vx", "vy", "vz", "ax", "ay", "az", "|v|","atan", 
+  "longitudinal velocity (vx)", "horizontal velocity(vy)", "vertical velocity (vz)", "longitudinal acceleration (ax)", "horizontal acceleration (ay)", "vertical acceleration (az)", "velocity magnitude (|v|)","tangential acceleration (m/s^2)", 
   #tortuosity --------- 2
   "turn rate", "centripetal acceleration", 
   #wings ---------------3 ---------------> 29 variables!
@@ -4399,7 +4422,8 @@ lmer_mods <- list(
 stopifnot(length(labels) == length(anova_tabs), length(anova_tabs) == length(lmer_mods))
 
 #storage for all rows
-out_all <- list()
+out_model <- list()
+out_summary <- list()
 
 
 for (i in seq_along(lmer_mods)){
@@ -4447,6 +4471,7 @@ for (i in seq_along(lmer_mods)){
   
   # Build the single-row data frame in your requested format ---
   out_row <- data.frame(
+    Variables = labels[i],
     Age   = fmt_term(ageF,   ageDf,   ageDf.res,   ageP),
     Sex   = fmt_term(SexF,   SexDf,   SexDf.res,   SexP),
     Hinge = fmt_term(hingeF, hingeDf, hingeDf.res,  hingeP),# uses the parenthesis style
@@ -4478,6 +4503,7 @@ for (i in seq_along(lmer_mods)){
   R2_conditional <- performance::r2(mod, tolerance = 0 )$R2_conditional
 
   summary_cols <- data.frame(
+    Variables = labels[i],
     sd_fixed   = round(sd_fixed, 2),
     sd_bird    = round(sd_bird, 2),
     sd_brood = ifelse(is.na(sd_brood), NA, round(sd_brood,2 )),
@@ -4489,92 +4515,42 @@ for (i in seq_along(lmer_mods)){
     row.names = NULL
   )
 
+  # store in lists
   
-  # Add the Variables column as the first column
-  out_row <- cbind(Variables = labels[i], out_row, summary_cols)
-  
-  out_all[[i]] <- out_row
+  out_model[[i]] <- out_row
+  out_summary[[i]] <- out_summary 
 }
 
 # Combine rows from all models into one data frame
-out_all <- do.call(rbind, out_all)
+out_model <- do.call(rbind, out_model)
+out_summary <- do.call(rbind, out_summary)
 
-kable(out_all, escape = FALSE)
+kable(out_model, escape = FALSE) 
+kable(out_summary, escape = FALSE)
 
 ```
-### functions for plots
+```{r}
+latex_model_output <- knitr::kable(
+  out_model,
+  format = "latex", 
+  booktabs = TRUE,
+  longtable = TRUE,# <-- produce LaTeX, not HTML/Markdown 
+  escape = FALSE      # allow LaTeX in your cell content
+)
+
+cat(latex_model_output)
+```
 ```{r}
 
+latex_summary_output <- knitr::kable(
+  out_summary,
+  format = "latex", 
+  booktabs = TRUE,
+  longtable = TRUE,# <-- produce LaTeX, not HTML/Markdown 
+  escape = FALSE      # allow LaTeX in your cell content
+)
 
-# ---- dependencies
-#library(ggplot2)
-
-sanitize_filename <- function(x) {
-  x <- gsub("[^A-Za-z0-9]+", "_", x)
-  x <- gsub("^_+|_+$", "", x)
-  tolower(x)
-}
-
-fmt_term_plain <- function(F, Df, Df_res, p, digits_F = 1, digits_Df = 1, p_thresh = 0.001) {
-  if (any(is.na(c(F, Df, Df_res, p)))) return("F = NA, p = NA")
-  F_str   <- format(round(F, digits_F), nsmall = digits_F, trim = TRUE)
-  Df_str  <- format(Df, trim = TRUE)
-  Res_str <- format(round(Df_res, digits_Df), nsmall = digits_Df, trim = TRUE)
-
-  p_str <- if (is.na(p)) {
-    "p = NA"
-  } else if (p < p_thresh) {
-    "p < 0.001"
-  } else {
-    paste0("p = ", format(round(p, 2), nsmall = 2))
-  }
-
-  sig <- if (!is.na(p) && p < 0.05) " (p < 0.05)" else ""
-  sprintf("F[%s, %s] = %s, %s%s", Df_str, Res_str, F_str, p_str, sig)
-}
-
-make_model_plot_plain <- function(
-  mod, label, breakpoint, breakpoint_se,
-  before_string, after_string,
-  before_term_txt, after_term_txt, same_term_txt
-) {
-  df <- model.frame(mod)
-  y_name <- all.vars(formula(mod))[1]
-
-  base_plot <- ggplot(df, aes(x = Age, y = .data[[y_name]])) +
-    geom_point(alpha = 0.6) +
-    theme_bw() +
-    labs(title = label, x = "Age", y = label)
-
-  p <- plot_breakpoint(breakpoint, breakpoint_se, base_plot)
-
-  cap <- paste0(
-    "Slope summaries: before = ", before_string, "; after = ", after_string, "\n",
-    "Tests: before = 0? ", before_term_txt, "; ",
-    "after = 0? ",  after_term_txt, "; ",
-    "before = after? ", same_term_txt
-  )
-
-  p + labs(caption = cap) + theme(plot.caption = element_text(size = 9))
-}
-
-save_model_plot_plain <- function(
-  mod, label, breakpoint, breakpoint_se,
-  before_string, after_string,
-  before_term_txt, after_term_txt, same_term_txt,
-  out_dir = "plots", width = 7, height = 5, dpi = 300
-) {
-  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-  p <- make_model_plot_plain(
-    mod, label, breakpoint, breakpoint_se,
-    before_string, after_string,
-    before_term_txt, after_term_txt, same_term_txt
-  )
-  fn <- file.path(out_dir, paste0("plot_model_", sanitize_filename(label), ".png"))
-  ggplot2::ggsave(fn, plot = p, width = width, height = height, dpi = dpi)
-  fn
-}
-
+cat(latex_summary_output)
 
 
 ```
@@ -4775,9 +4751,18 @@ knitr::kable(out_all_test, escape = FALSE)
 
 #plot_files[1]
 ```
-### function model_plot
-- raw data, breakpoint (mean and se), predicted lines from linear Hypothesis
+#### latex output
 ```{r}
+
+
+latex_tab <- knitr::kable(
+  out_all_test,
+  format = "latex",   # <-- produce LaTeX, not HTML/Markdown
+  booktabs = TRUE,    # cleaner top/mid/bottom rules
+  escape = FALSE      # allow LaTeX in your cell content
+)
+
+cat(latex_tab)
 
 
 
@@ -5737,7 +5722,7 @@ plot_only_bps <- ggplot(df_est, aes(x = group, y = estimate)) +
   theme_minimal(base_size = 14)
 
 ```
-### with and without wl & left duration
+### plot - with and without wl & left duration
 ```{r}
 plot_last <- ggarrange(plot_all_bps, plot_only_bps, nrow = 2, ncol = 1) %>%
   annotate_figure(
@@ -5761,7 +5746,31 @@ plot_only_bps2
 
 ### forest plot
 ```{r}
+df_groups2 <- read_csv("C:\\Users\\jesu4036\\Documents\\df_groups2.csv")
 
+df_groups2 <- df_groups2 %>%
+  mutate(variable = replace(variable, variable == 'right impulse', 'impulse after')) %>%
+  mutate(variable = replace(variable, variable == 'left impulse', 'impulse before')) %>%
+  mutate(variable = replace(variable, variable == 'Fx', 'peak sideway force (max Fx)')) %>%
+  mutate(variable = replace(variable, variable == 'Fy', 'peak horizontal force (max Fy)')) %>%
+  mutate(variable = replace(variable, variable == 'Fz', 'peak vertical force (max Fz)')) %>%
+  mutate(variable = replace(variable, variable == 'accx', 'sideway acceleration (accx)')) %>%
+  mutate(variable = replace(variable, variable == 'accy', 'horizontal acceleration (accy)')) %>%
+  mutate(variable = replace(variable, variable == 'accz', 'vertical acceleration (accz)')) %>%
+  mutate(variable = replace(variable, variable == 'wingarea', 'wing area')) %>%
+  mutate(variable = replace(variable, variable == 'vy', 'horizontal velocity (vy)')) %>%
+  mutate(variable = replace(variable, variable == 'vz', 'vertical velocity (vz)')) %>%
+  mutate(variable = replace(variable, variable == 'vx', 'sideway velocity (vx)')) %>%
+  mutate(variable = replace(variable, variable == 'F_mag', 'peak force magnitude (|F|)')) %>%
+  mutate(variable = replace(variable, variable == 'v_mag', 'velocity magnitude (|v|)')) %>%
+  mutate(variable = replace(variable, variable == 'atan', 'tangential acceleration')) %>%
+  mutate(variable = replace(variable, variable == 'angle', 'take-off angle')) %>%
+  mutate(variable = replace(variable, variable == 'centri', 'centripetal acceleration')) %>%
+  mutate(variable = replace(variable, variable == 'right duration', 'duration after')) %>%
+  mutate(variable = replace(variable, variable == 'left duration', 'duration before')) %>%
+  mutate(variable = replace(variable, variable == 'wingbeatf', 'wingbeat frequency')) %>%
+  mutate(variable = replace(variable, variable == 'upstroke', 'upstroke head displacement')) %>%
+  mutate(variable = replace(variable, variable == 'downstroke', 'downstroke head displacement'))
 
 ord <- order(df_groups2$mean)
 labels_vec <- as.character(df_groups2$variable)
@@ -5774,8 +5783,14 @@ forest(
   #Breakpoint (mean ± 95% CI)
   xlab   = "",
   refline = 0,
-  cex = 0.65
+  cex = 2.5,
+  annotate = TRUE,  # show mean and 95% CI text
+  digits = c(1,1), #1 decimal for estimate/CI
+  header   = c("", "Mean [95% CI]")
 )
+
+abline(v = c(20, 40, 60, 80, 100),
+       col = "grey70", lty = 2, lwd = 2.5)
 
 
 #forest(m)
