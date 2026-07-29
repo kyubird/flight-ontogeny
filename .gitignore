@@ -5,6 +5,11 @@ __pycache__/
 
 # Code bin
 notebook/takeoff-force-bin.Rmd
+.vscode/
+notebooks/baby_falcons_xyz.ipynb
+notebooks/nmds_group_ellipses.png
+notebooks/takeoff-force-bin.Rmd
+notebooks/xyz_coordinates.csv
 
 # C extensions
 *.so
